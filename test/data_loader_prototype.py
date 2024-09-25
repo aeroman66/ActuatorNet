@@ -1,0 +1,57 @@
+import json
+import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+
+"""
+JSON 文件格式：
+[
+    {
+        "motor_id": 0,
+        "dof_pos": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "dof_vel": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    {
+        "motor_id": 1,
+        "dof_pos": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "dof_vel": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    },
+    ...
+]
+"""
+
+class MotorDataset(Dataset):
+    def __init__(self, json_file):
+        with open(json_file, 'r') as f:
+            self.data = json.load(f)
+        
+    def __len__(self):
+        return len(self.data[0]['dof_pos'])
+    
+    def __getitem__(self, idx):
+        motor_data = []
+        motor = self.data[0]
+        # for motor in self.data:
+        #     motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
+        motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
+        return torch.tensor(motor_data, dtype=torch.float32)
+
+# 使用示例
+def main():
+    json_file = 'data_sets/motor_data.json'
+    # 创建数据集实例
+    dataset = MotorDataset(json_file=json_file)
+
+    # 创建数据加载器
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+    # 使用数据加载器
+    for batch in dataloader:
+        # 处理每个批次的数据
+        print(batch.shape)  # 打印批次的形状
+        print(batch)  # 打印批次的数据
+        # 在这里进行您的模型训练或其他操作
+
+if __name__ == "__main__":
+    main()
+
