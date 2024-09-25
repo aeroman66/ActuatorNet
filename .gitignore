@@ -58,5 +58,5 @@ log/
 # other
 *.egg-info
 __pycache__
-.pt
-.json
+*.pt
+*.json
