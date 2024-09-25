@@ -35,18 +35,24 @@ class MotorDataset(Dataset):
         #     motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
         motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
         return torch.tensor(motor_data, dtype=torch.float32)
+    
+class MotorDataLoader:
+    def __init__(self,
+                 json_file,
+                 batch_size=32,
+                 shuffle=True):
+        self.dataset = MotorDataset(json_file)
+        self.dataloader = DataLoader(self.dataset, batch_size=32, shuffle=True)
 
 # 使用示例
 def main():
     json_file = 'data_sets/motor_data.json'
-    # 创建数据集实例
-    dataset = MotorDataset(json_file=json_file)
+    # 创建 DataLoader
 
-    # 创建数据加载器
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    dataloader = MotorDataLoader(json_file)
 
     # 使用数据加载器
-    for batch in dataloader:
+    for batch in dataloader.dataloader:
         # 处理每个批次的数据
         print(batch.shape)  # 打印批次的形状
         print(batch)  # 打印批次的数据
