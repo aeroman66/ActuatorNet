@@ -20,6 +20,6 @@ if __name__ == "__main__":
 
     # 将数据写入 JSON 文件
     with open(json_file, 'w') as f:
-        json.dump(motor_data, f, indent=2)
+        json.dump(motor_data, f, indent=2) # dump 的时候一定要指定 indent，不然整个 json 文件全部在一行上，可读性非常差。
 
     print("JSON file 'motor_data.json' has been created.")
