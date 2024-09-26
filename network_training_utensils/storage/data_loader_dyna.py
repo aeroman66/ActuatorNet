@@ -17,8 +17,8 @@ class JsonConfigDataLoader:
         self.file = None
         self.data = None
         self.current_index = 0
-        self.indices = list(range(len(self.cfg.motor_id0.dof_pos)))
-        self.attrs = ('dof_pos', 'dof_vel', 'dof_tor')
+        self.indices = list(range(len(self.cfg.motor_0.dof_pos)))
+        self.attrs = ('dof_pos', 'dof_vel', 'dof_tor', 'tar_dof_pos')
         self.shuffle_indices() # 不放在 __init__ 中是因为我们希望每次迭代都进行 shuffle。最后放哪还得研究
     
     def shuffle_indices(self):
@@ -39,22 +39,23 @@ class JsonConfigDataLoader:
 
     def __next__(self) -> List[Dict[str, Any]]:
         if self.drop_last:
-            if self.current_index >= len(self.cfg.motor_id0.dof_pos) or self.current_index + self.history_length > len(self.cfg.motor_id0.dof_pos):
+            if self.current_index >= len(self.cfg.motor_0.dof_pos) or self.current_index + self.history_length > len(self.cfg.motor_0.dof_pos):
                 raise StopIteration
         else:
-            if self.current_index >= len(self.cfg.motor_id0.dof_pos):
+            if self.current_index >= len(self.cfg.motor_0.dof_pos):
                 raise StopIteration
 
         index = self.indices[self.current_index]
-        while index + self.history_length > len(self.cfg.motor_id0.dof_pos):
+        while index + self.history_length > len(self.cfg.motor_0.dof_pos):
             self.current_index += 1
             index = self.indices[self.current_index]
-        item = self.data['motor_id0']
-        data = [[] for _ in range(3)]
-        for i in range(index, min(index + self.history_length, len(self.cfg.motor_id0.dof_pos))):
+        item = self.data['motor_0']
+        data = [[] for _ in range(len(self.attrs))]
+        for i in range(index, min(index + self.history_length, len(self.cfg.motor_0.dof_pos))):
             data[0].append(item["dof_pos"][i])
             data[1].append(item["dof_vel"][i])
             data[2].append(item["dof_tor"][i])
+            data[3].append(item["tar_dof_pos"][i])
 
         # self.current_index += self.batch_size
         self.current_index += 1
@@ -95,7 +96,7 @@ class MiniBatchGenerator:
 
 # Usage example
 if __name__ == "__main__":
-    config_path = 'data_sets/motor_data.json'
+    config_path = 'data_sets/go1_dataset_x0.25.json'
     mini_batch_gen = MiniBatchGenerator(config_path, history_length=10, mini_batch_size=2)
     # for idx, mini_batch in enumerate(mini_batch_gen):
     #     pass
