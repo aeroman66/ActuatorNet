@@ -16,6 +16,7 @@ class JsonConfigDataLoader:
         self.file = None
         self.data = None
         self.current_index = 0
+        self.attrs = ('dof_pos', 'dof_vel', 'dof_tor')
 
     def __enter__(self):
         self.file = open(self.file_path, 'r')
@@ -52,6 +53,9 @@ class JsonConfigDataLoader:
 
 # 实现 batch 的生成
 class MiniBatchGenerator:
+    """
+    通过 push 上面的类产生多条数据，来制作 mini_batch
+    """
     def __init__(self, file_path: str, history_length: int = 10, mini_batch_size: int = 32, drop_last: bool = True):
         self.loader = JsonConfigDataLoader(file_path, history_length)
         self.mini_batch_size = mini_batch_size
@@ -61,19 +65,31 @@ class MiniBatchGenerator:
         return self
 
     def __next__(self) -> List[List[Dict[str, Any]]]:
-        mini_batch = []
+        mini_batch = [[] for _ in range(len(self.loader.attrs))]
         with self.loader as loader:
             for _ in range(self.mini_batch_size):
                 try:
-                    batch = next(loader)
-                    mini_batch.append(batch)
+                    data = next(loader)
+                    for idx, attr in enumerate(data):
+                        mini_batch[idx].append(attr)
                 except StopIteration:
-                    if not mini_batch or (self.drop_last and len(mini_batch) < self.mini_batch_size):
+                    if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
                         raise StopIteration
                     break
         
-        if self.drop_last and len(mini_batch) < self.mini_batch_size:
+        if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
             raise StopIteration
+        #     for _ in range(self.mini_batch_size):
+        #         try:
+        #             batch = next(loader)
+        #             mini_batch.append(batch)
+        #         except StopIteration:
+        #             if not mini_batch or (self.drop_last and len(mini_batch) < self.mini_batch_size):
+        #                 raise StopIteration
+        #             break
+        
+        # if self.drop_last and len(mini_batch) < self.mini_batch_size:
+        #     raise StopIteration
         
         return mini_batch
 
@@ -84,12 +100,10 @@ if __name__ == "__main__":
     
     for idx, mini_batch in enumerate(mini_batch_gen):
         print(f"Mini-batch {idx + 1}:")
-        print(f"  Batch Size: {len(mini_batch)}")
-        for batch in mini_batch:
-            for attr, item in zip(('dof_pos', 'dof_vel', 'dof_tor'), batch):
-                # print(f"    {attr} length: {len(item)}")
-                print(f"    {attr} : {item}")
-            print()
+        print(f"  Batch Size: {len(mini_batch[0])}")
+        for attr, item in zip(mini_batch_gen.loader.attrs, mini_batch):
+            print(f"    {attr} length: {len(item)}")
+            print(f"    {attr} : {item}")
         print()
 
 

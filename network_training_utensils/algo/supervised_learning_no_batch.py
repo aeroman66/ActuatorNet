@@ -15,8 +15,7 @@ class SupervisedLearning:
                  net : ActuatorNet,
                  storage : MotorDataLoader,
                  num_learning_epochs=1,
-                 history_length=20,
-                 batch_size=32,
+                 batch_size=20,
                  clip_param=0.2,
                  value_loss_coef=1.0,
                  learning_rate=1e-3,
@@ -29,7 +28,6 @@ class SupervisedLearning:
         self._storage = storage
         self.storage = None # 进行单独初始化
         self.num_learning_epochs = num_learning_epochs
-        self.history_length = history_length
         self.batch_size = batch_size
         self.clip_param = clip_param
         self.value_loss_coef = value_loss_coef
