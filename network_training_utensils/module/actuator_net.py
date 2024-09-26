@@ -5,7 +5,7 @@ class ActuatorNet(nn.Module):
     def __init__(self,
                  input_size,
                  output_size,
-                 hidden_size=[512, 256, 128],
+                 hidden_size=[128, 64, 32],
                  activation='elu',
                  init_noise_std=1.0):
         super().__init__()
@@ -41,6 +41,7 @@ class ActuatorNet(nn.Module):
         raise NotImplementedError
     
     def act_inference(self, obs):
+        obs = torch.Tensor(obs)
         return self.net(obs)
        
 

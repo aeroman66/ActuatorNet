@@ -33,16 +33,17 @@ class MotorDataset(Dataset):
         motor = self.data[0]
         # for motor in self.data:
         #     motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
-        motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx]])
+        motor_data.extend([motor['dof_pos'][idx], motor['dof_vel'][idx], motor['dof_tor'][idx]])
         return torch.tensor(motor_data, dtype=torch.float32)
     
 class MotorDataLoader:
     def __init__(self,
                  json_file,
                  batch_size=32,
-                 shuffle=True):
+                 shuffle=False,
+                 drop_last=False):
         self.dataset = MotorDataset(json_file)
-        self.dataloader = DataLoader(self.dataset, batch_size=32, shuffle=True)
+        self.dataloader = DataLoader(self.dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last) # 这里不进行打乱是因为我们想保留数据的时序信息
 
 # 使用示例
 def main():

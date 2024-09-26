@@ -7,7 +7,8 @@ def generate_motor_data(num_motors=12, array_length=600):
         motor_data = {
             "motor_id": motor_id,
             "dof_pos": [round(random.uniform(-1, 1), 4) for _ in range(array_length)],
-            "dof_vel": [round(random.uniform(-0.5, 0.5), 4) for _ in range(array_length)]
+            "dof_vel": [round(random.uniform(-0.5, 0.5), 4) for _ in range(array_length)],
+            "dof_tor": [round(random.uniform(-1, 1), 4) for _ in range(array_length)],
         }
         data.append(motor_data)
     return data
