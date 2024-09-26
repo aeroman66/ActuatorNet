@@ -7,7 +7,7 @@ class ActuatorNet(nn.Module):
                  output_size,
                  hidden_size=[128, 64, 32],
                  activation='elu',
-                 init_noise_std=1.0):
+                 init_noise_std=0.01):
         super().__init__()
         activation = get_activation(activation)
 

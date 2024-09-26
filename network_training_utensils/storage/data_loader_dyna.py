@@ -3,6 +3,58 @@ import random
 from typing import List, Dict, Any
 from dynaconf import Dynaconf
 
+"""
+{
+  "motor_0": {
+    "dof_pos": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    "dof_vel": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    "dof_tor": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    },
+  "motor_1": {
+    "dof_pos": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    "dof_vel": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    "dof_tor": [
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0, 
+        0.0],
+    },
+    ...
+}
+"""
+
 class JsonConfigDataLoader:
     """
     这个类产生的不能被称为 batch
@@ -96,8 +148,8 @@ class MiniBatchGenerator:
 
 # Usage example
 if __name__ == "__main__":
-    config_path = 'data_sets/go1_dataset_x0.25.json'
-    mini_batch_gen = MiniBatchGenerator(config_path, history_length=10, mini_batch_size=2)
+    file_path = 'data_sets/merged_motor_data.json'
+    mini_batch_gen = MiniBatchGenerator(file_path=file_path, history_length=10, mini_batch_size=2)
     # for idx, mini_batch in enumerate(mini_batch_gen):
     #     pass
     # print(f"mini_batch_gen.loader.indices: {mini_batch_gen.loader.indices}")

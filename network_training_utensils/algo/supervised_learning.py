@@ -15,7 +15,7 @@ class SupervisedLearning:
                  net : ActuatorNet,
                  storage : MiniBatchGenerator,
                  num_learning_epochs=1,
-                 history_length=20,
+                 history_length=10,
                  batch_size=32,
                  clip_param=0.2,
                  value_loss_coef=1.0,
@@ -111,7 +111,7 @@ class SupervisedLearning:
 
 
 if __name__ == "__main__":
-    algo = SupervisedLearning(net=ActuatorNet(input_size=40, output_size=1), storage=MiniBatchGenerator, json_file='data_sets/go1_dataset_x0.25.json')
+    algo = SupervisedLearning(net=ActuatorNet(input_size=40, output_size=1), storage=MiniBatchGenerator, json_file='data_sets/merged_motor_data.json')
     losslist = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
     plt.plot(losslist)
     plt.show()
