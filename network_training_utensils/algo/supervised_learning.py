@@ -8,12 +8,12 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 
 from network_training_utensils.module.actuator_net import ActuatorNet
-from network_training_utensils.storage.data_loader_prototype import MotorDataLoader
+from network_training_utensils.storage.data_loader_dyna import MiniBatchGenerator
 
 class SupervisedLearning:
     def __init__(self,
                  net : ActuatorNet,
-                 storage : MotorDataLoader,
+                 storage : MiniBatchGenerator,
                  num_learning_epochs=1,
                  history_length=20,
                  batch_size=32,
@@ -52,9 +52,10 @@ class SupervisedLearning:
         self._init_storage()
 
     def _init_storage(self):
-        self.storage = self._storage(json_file=self.json_file,
-                                     batch_size=self.batch_size,
-                                     shuffle=self.shuffle)
+        self.storage = self._storage(file_path=self.json_file,
+                                     history_length=self.history_length,
+                                     mini_batch_size=self.batch_size,
+                                     )
         print(f"storage: {self.storage}")
         
     def test_mode(self):
@@ -69,15 +70,25 @@ class SupervisedLearning:
     def update(self):
         losslist = []
         # 1. 获取 batch
-        for  batch in self.storage.dataloader:
+        for mini_batch in self.storage:
             # print(batch)
-            self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch = batch.split(1, dim=1)
+            mini_batch = torch.Tensor(mini_batch).to(self.device)
+            self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch = mini_batch.split(1, dim=0)
+            self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch = (
+                self.dof_pos_batch.squeeze(0),
+                self.dof_vel_batch.squeeze(0),
+                self.dof_tor_batch.squeeze(0),
+            )
             obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch)
             action_inferenced = self.net.act_inference(obs)
-            label = self.dof_tor_batch[-1]
+            action_inferenced = action_inferenced.squeeze(1)
+            print("action_inferenced: ", action_inferenced.shape)
+            label = self.dof_tor_batch[:,-1]
+            print("label: ", label.shape)
 
             # 2. 计算 loss
             loss = self.criterion(action_inferenced, label)
+            print("loss: ", loss.shape)
 
             # 3. 更新网络参数
             self.optimizer.zero_grad()
@@ -89,13 +100,14 @@ class SupervisedLearning:
         return losslist
 
     def _construct_observation(self, dof_pos_batch, dof_vel_batch):
-        obs = torch.cat((dof_pos_batch, dof_vel_batch), dim=0).squeeze(dim=1)
-        # print(obs.shape)
+        # print("dof_pos_batch: ", dof_pos_batch.shape)
+        obs = torch.cat((dof_pos_batch, dof_vel_batch), dim=1)
+        # print("obs:", obs.shape)
         return obs
 
 
 if __name__ == "__main__":
-    algo = SupervisedLearning(net=ActuatorNet(input_size=40, output_size=1), storage=MotorDataLoader, json_file='data_sets/motor_data.json')
+    algo = SupervisedLearning(net=ActuatorNet(input_size=40, output_size=1), storage=MiniBatchGenerator, json_file='data_sets/motor_data.json')
     losslist = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
     plt.plot(losslist)
     plt.show()

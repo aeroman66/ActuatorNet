@@ -1,4 +1,5 @@
 import json
+import random
 from typing import List, Dict, Any
 from dynaconf import Dynaconf
 
@@ -16,7 +17,12 @@ class JsonConfigDataLoader:
         self.file = None
         self.data = None
         self.current_index = 0
+        self.indices = list(range(len(self.cfg.motor_id0.dof_pos)))
         self.attrs = ('dof_pos', 'dof_vel', 'dof_tor')
+        self.shuffle_indices() # 不放在 __init__ 中是因为我们希望每次迭代都进行 shuffle。最后放哪还得研究
+    
+    def shuffle_indices(self):
+        random.shuffle(self.indices)
 
     def __enter__(self):
         self.file = open(self.file_path, 'r')
@@ -39,9 +45,13 @@ class JsonConfigDataLoader:
             if self.current_index >= len(self.cfg.motor_id0.dof_pos):
                 raise StopIteration
 
+        index = self.indices[self.current_index]
+        while index + self.history_length > len(self.cfg.motor_id0.dof_pos):
+            self.current_index += 1
+            index = self.indices[self.current_index]
         item = self.data['motor_id0']
         data = [[] for _ in range(3)]
-        for i in range(self.current_index, min(self.current_index + self.history_length, len(self.cfg.motor_id0.dof_pos))):
+        for i in range(index, min(index + self.history_length, len(self.cfg.motor_id0.dof_pos))):
             data[0].append(item["dof_pos"][i])
             data[1].append(item["dof_vel"][i])
             data[2].append(item["dof_tor"][i])
@@ -55,6 +65,7 @@ class JsonConfigDataLoader:
 class MiniBatchGenerator:
     """
     通过 push 上面的类产生多条数据，来制作 mini_batch
+    目前有个问题，这样获得的 mini_batch 不是随机的，而是按时序来的
     """
     def __init__(self, file_path: str, history_length: int = 10, mini_batch_size: int = 32, drop_last: bool = True):
         self.loader = JsonConfigDataLoader(file_path, history_length)
@@ -79,25 +90,16 @@ class MiniBatchGenerator:
         
         if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
             raise StopIteration
-        #     for _ in range(self.mini_batch_size):
-        #         try:
-        #             batch = next(loader)
-        #             mini_batch.append(batch)
-        #         except StopIteration:
-        #             if not mini_batch or (self.drop_last and len(mini_batch) < self.mini_batch_size):
-        #                 raise StopIteration
-        #             break
-        
-        # if self.drop_last and len(mini_batch) < self.mini_batch_size:
-        #     raise StopIteration
         
         return mini_batch
 
 # Usage example
 if __name__ == "__main__":
     config_path = 'data_sets/motor_data.json'
-    mini_batch_gen = MiniBatchGenerator(config_path, history_length=14, mini_batch_size=5)
-    
+    mini_batch_gen = MiniBatchGenerator(config_path, history_length=10, mini_batch_size=2)
+    # for idx, mini_batch in enumerate(mini_batch_gen):
+    #     pass
+    # print(f"mini_batch_gen.loader.indices: {mini_batch_gen.loader.indices}")
     for idx, mini_batch in enumerate(mini_batch_gen):
         print(f"Mini-batch {idx + 1}:")
         print(f"  Batch Size: {len(mini_batch[0])}")
@@ -105,16 +107,3 @@ if __name__ == "__main__":
             print(f"    {attr} length: {len(item)}")
             print(f"    {attr} : {item}")
         print()
-
-
-# # 使用示例
-# if __name__ == "__main__":
-#     config_path = 'data_sets/motor_data.json'
-#     with JsonConfigDataLoader(config_path, history_length=26, drop_last=True) as loader:
-#         cnt = 0
-#         for batch in loader:
-#             print(f"New batch:{cnt}")
-#             for attr, item in zip(('dof_pos', 'dof_vel', 'dof_tor'), batch):
-#                 print(f"{attr} : {item}", len(item))
-#             cnt += 1
-#             print()
