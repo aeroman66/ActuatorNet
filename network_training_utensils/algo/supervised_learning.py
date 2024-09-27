@@ -101,10 +101,7 @@ if __name__ == "__main__":
     """
     因为目前数据不多，网络过于复杂可能出现过拟合的情况：选择降低参数数目，目前为 [64, 32, 16]
     """
-    # file_path = 'data_sets/merged_motor_data.json'
-    # file_path = 'data_sets/go1_dataset_x0.25.json'
-    file_path = 'data_sets/smooth/go1_dataset_x0.25_smooth.json'
-    # loader = JsonConfigDataLoader(file_path=file_path, history_length=15)
+    file_path = 'data_sets/merged_motor_data_ultimate.json'
     algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32), num_learning_epochs=10, file_path=file_path)
     with algo.storage.loaders as algo.storage.loaded_loaders:
         losslist = []

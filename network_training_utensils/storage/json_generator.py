@@ -1,3 +1,4 @@
+import os
 import json
 import random
 import numpy as np
@@ -147,7 +148,47 @@ def trim_json_data(input_file, output_file, start_index):
     with open(output_file, 'w') as f:
         json.dump(data, f, indent=2)
 
+def operation_func(input_file, output_file):
+    trim_json_data(input_file, output_file, start_index=200)
+    plot_json_data(output_file, output_file[:-5]+'.jpg')
+
+def process_all_files_in_directory(input_dir, output_dir, operation_func):
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 遍历输入目录中的所有文件
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.json'):
+            input_path = os.path.join(input_dir, filename)
+            output_path = os.path.join(output_dir, f"processed_{filename}")
+            
+            # 对每个文件执行操作
+            operation_func(input_path, output_path)
+
+def merge_json_files(input_dir, output_file):
+    merged_data = {}
+    motor_count = 0
+
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.json'):
+            file_path = os.path.join(input_dir, filename)
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            
+            for motor_data in data.values():
+                merged_data[f"motor_{motor_count}"] = motor_data
+                motor_count += 1
+
+    with open(output_file, 'w') as f:
+        json.dump(merged_data, f, indent=2)
+
+    print(f"Merged {motor_count} motors into {output_file}")
+
 if __name__ == "__main__":
+    input_path = 'data_sets/origin'
+    output_path = 'data_sets/exploited'
+    process_all_files_in_directory(input_path, output_path, operation_func)
+    merge_json_files(output_path, 'data_sets/merged_motor_data_ultimate.json')
     # # 生成数据
     # file_ori = 'data_sets/go1_dataset_x0.25.json'
     # json_file = 'merged_motor_data.json'
@@ -165,31 +206,31 @@ if __name__ == "__main__":
 
     # print("JSON file 'motor_data.json' has been created.")
 
-    # file_path_ori = "data_sets/merged_motor_data.json"
-    # output_file = "data_sets/merged_motor_data_jpg.jpg"
-    file_path_ori = "data_sets/origin/go1_dataset_x0.25.json"
-    file_path_trim = "data_sets/trim/go1_dataset_x0.25_trim.json"
-    file_path_smooth = "data_sets/smooth/go1_dataset_x0.25_smooth.json"
-    file_path_merged = "data_sets/merged_motor_data_exploited.json"
-    output_img_file_ori = "data_sets/img/go1_dataset_x0.25_jpg.jpg"
-    output_img_file_trim = "data_sets/img/go1_dataset_x0.25_trim_jpg.jpg"
-    output_img_file_smooth = "data_sets/img/go1_dataset_x0.25_smooth_jpg.jpg"
-    output_img_file_smooth_all = "data_sets/img/go1_dataset_x0.25_smooth_all_jpg.jpg"
-    output_img_file_merged = "data_sets/img/go1_dataset_x0.25_merged_jpg.jpg"
+    # # file_path_ori = "data_sets/merged_motor_data.json"
+    # # output_file = "data_sets/merged_motor_data_jpg.jpg"
+    # file_path_ori = "data_sets/origin/go1_dataset_x0.25.json"
+    # file_path_trim = "data_sets/trim/go1_dataset_x0.25_trim.json"
+    # file_path_smooth = "data_sets/smooth/go1_dataset_x0.25_smooth.json"
+    # file_path_merged = "data_sets/merged_motor_data_exploited.json"
+    # output_img_file_ori = "data_sets/img/go1_dataset_x0.25_jpg.jpg"
+    # output_img_file_trim = "data_sets/img/go1_dataset_x0.25_trim_jpg.jpg"
+    # output_img_file_smooth = "data_sets/img/go1_dataset_x0.25_smooth_jpg.jpg"
+    # output_img_file_smooth_all = "data_sets/img/go1_dataset_x0.25_smooth_all_jpg.jpg"
+    # output_img_file_merged = "data_sets/img/go1_dataset_x0.25_merged_jpg.jpg"
 
-    # 绘制数据
-    plot_json_data(file_path_ori, output_img_file_ori)
-    # 裁剪数据
-    trim_json_data(file_path_ori, file_path_trim, 250)
-    # 绘制数据
-    plot_json_data(file_path_trim, output_img_file_trim)
-    # 平滑数据
-    smooth_json_data(file_path_trim, file_path_smooth)
-    # 绘制数据
-    plot_json_data(file_path_smooth, output_img_file_smooth)
-    plot_all_motors_data(file_path_smooth, output_img_file_smooth_all)
-
-    # # 合并数据
-    # merge_motors(file_path_smooth, file_path_merged)
     # # 绘制数据
-    # plot_json_data(file_path_merged, output_img_file_merged)
+    # plot_json_data(file_path_ori, output_img_file_ori)
+    # # 裁剪数据
+    # trim_json_data(file_path_ori, file_path_trim, 250)
+    # # 绘制数据
+    # plot_json_data(file_path_trim, output_img_file_trim)
+    # # 平滑数据
+    # smooth_json_data(file_path_trim, file_path_smooth)
+    # # 绘制数据
+    # plot_json_data(file_path_smooth, output_img_file_smooth)
+    # plot_all_motors_data(file_path_smooth, output_img_file_smooth_all)
+
+    # # # 合并数据
+    # # merge_motors(file_path_smooth, file_path_merged)
+    # # # 绘制数据
+    # # plot_json_data(file_path_merged, output_img_file_merged)
