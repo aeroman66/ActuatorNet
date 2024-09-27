@@ -2,16 +2,12 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from network_training_utensils.algo.supervised_learning import SupervisedLearning
-from network_training_utensils.module.actuator_net import ActuatorNet
-from network_training_utensils.storage.data_loader_prototype import MotorDataLoader
-
 import  torch
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
 import time
 
-from network_training_utensils.storage.data_loader_dyna import MiniBatchGenerator, JsonConfigDataLoader
+from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
 from network_training_utensils.algo.supervised_learning import SupervisedLearning
 from network_training_utensils.module.actuator_net import ActuatorNet
 from scripts import cfg
@@ -42,13 +38,13 @@ class Runner:
             output_size=self.cfg.net.output_size,
             )
         # 感觉还是应该定义成实例变量，因为需要保证在整个类的生命周期内都活着
-        self.loader = loader(
-            file_path=self.cfg.file_path,
-            history_length=self.cfg.algo.history_length,
-        )
+        # self.loader = loader(
+        #     file_path=self.cfg.file_path,
+        #     history_length=self.cfg.algo.history_length,
+        # )
         self.generator = generator(
             file_path=self.cfg.file_path,
-            loader=self.loader,
+            loader=loader,
             history_length=self.cfg.algo.history_length,
             mini_batch_size=self.cfg.algo.batch_size,
         )
@@ -63,7 +59,7 @@ class Runner:
             weight_decay=self.cfg.algo.weight_decay,
             max_grad_norm=self.cfg.algo.max_grad_norm,
             shuffle=self.cfg.algo.shuffle,
-            json_file=self.cfg.file_path,
+            file_path=self.cfg.file_path,
             device=self.cfg.device
         )
     # ************************train**************************
@@ -153,7 +149,7 @@ if __name__ == "__main__":
         log_dir=cfg.runner.log_dir,
     )
 
-    with runner.algo.storage.loader as runner.algo.storage.loaded:
+    with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
         runner.learn()
 
     print("Training completed!")

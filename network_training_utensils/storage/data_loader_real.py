@@ -66,7 +66,10 @@ class JsonConfigDataLoader:
     因为比如 20 条历史数据构成一份我们提供给神经网络的输入，只能供进行一次训练。
     一个 batch 应该需要提供多次训练
     """
-    def __init__(self, file_path: str, history_length: int = 10, drop_last: bool = True):
+    attrs = ('dof_pos', 'dof_vel', 'dof_tor', 'tar_dof_pos')
+
+    def __init__(self, motor_id: int, file_path: str, history_length: int = 10, drop_last: bool = True):
+        self.motor_id = motor_id
         self.file_path = file_path
         self.history_length = history_length
         self.drop_last = drop_last
@@ -75,7 +78,6 @@ class JsonConfigDataLoader:
         self.data = None
         self.current_index = 0
         self.indices = list(range(len(self.cfg.motor_0.dof_pos)))
-        self.attrs = ('dof_pos', 'dof_vel', 'dof_tor', 'tar_dof_pos')
         self.shuffle_indices() # 不放在 __init__ 中是因为我们希望每次迭代都进行 shuffle。最后放哪还得研究
 
         # print("will you stuck?")
@@ -83,10 +85,10 @@ class JsonConfigDataLoader:
             data = json.load(file)
         # 将数据转换为NumPy数组
         self.data = {
-            'dof_pos': np.array(data['motor_0']['dof_pos']),
-            'dof_vel': np.array(data['motor_0']['dof_vel']),
-            'dof_tor': np.array(data['motor_0']['dof_tor']),
-            'tar_dof_pos': np.array(data['motor_0']['tar_dof_pos'])
+            'dof_pos': np.array(data[f'motor_{self.motor_id}']['dof_pos']),
+            'dof_vel': np.array(data[f'motor_{self.motor_id}']['dof_vel']),
+            'dof_tor': np.array(data[f'motor_{self.motor_id}']['dof_tor']),
+            'tar_dof_pos': np.array(data[f'motor_{self.motor_id}']['tar_dof_pos'])
         }
     
     def shuffle_indices(self):
@@ -127,7 +129,7 @@ class JsonConfigDataLoader:
         start = index
         end = start + self.history_length
         
-        item = self.data['motor_0']
+        item = self.data[f'motor_{self.motor_id}']
         # data = [[] for _ in range(len(self.attrs))]
         # for i in range(index, min(index + self.history_length, len(self.cfg.motor_0.dof_pos))):
         #     data[0].append(item["dof_pos"][i])
@@ -143,6 +145,21 @@ class JsonConfigDataLoader:
 
         self.current_index += 1
         return data
+    
+class LoaderManager:
+    def __init__(self, loaders):
+        self.loaders = loaders
+        self.loaded_loaders = []
+
+    def __enter__(self):
+        for loader in self.loaders:
+            loaded = loader.__enter__()
+            self.loaded_loaders.append(loaded)
+        return self.loaded_loaders
+
+    def __exit__(self, exc_type=None, exc_val=None, exc_tb=None):
+        for loader in self.loaders:
+            loader.__exit__(exc_type, exc_val, exc_tb)
 
 # 实现 batch 的生成
 class MiniBatchGenerator:
@@ -151,11 +168,23 @@ class MiniBatchGenerator:
     目前有个问题，这样获得的 mini_batch 不是随机的，而是按时序来的
     """
     def __init__(self, file_path: str, loader: JsonConfigDataLoader, history_length: int = 10, mini_batch_size: int = 32, drop_last: bool = True):
+        self.file_path = file_path
+        self.history_length = history_length
         self.loader = loader
+        self.loaders = None
         self.mini_batch_size = mini_batch_size
         self.drop_last = drop_last
         # self.prefetcher = DataPrefetcher(self.loader, num_prefetch=2)
-        self.loaded = None
+        self.loaded_loaders = None
+        self.motor_iterators = None
+
+        self._init_loader_list()
+
+    def _init_loader_list(self):
+        loader_list = []
+        for id in range(12):
+            loader_list.append(self.loader(id, self.file_path, self.history_length, self.drop_last))
+            self.loaders = LoaderManager(loader_list)
 
     def __iter__(self):
         return self
@@ -165,9 +194,11 @@ class MiniBatchGenerator:
             mini_batch = [[] for _ in range(len(self.loader.attrs))]
             # with self.loader as load:
             for _ in range(self.mini_batch_size):
+                motor_id = random.randint(0, 11)
                 try:
-                    data = next(self.loaded)
+                    data = next(self.loaded_loaders[motor_id])
                     for idx, attr in enumerate(data):
+                        # attr = [motor_id] # to verify the sampling
                         mini_batch[idx].append(attr)
                 except StopIteration:
                     if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
@@ -181,11 +212,10 @@ class MiniBatchGenerator:
 
 # Usage example
 if __name__ == "__main__":
-    file_path = 'data_sets/merged_motor_data.json'
-    loader = JsonConfigDataLoader(file_path=file_path, history_length=10)
-    mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=loader, history_length=10, mini_batch_size=2)
+    file_path = 'data_sets/smooth/go1_dataset_x0.25_smooth.json'
+    mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=10)
 
-    with mini_batch_gen.loader as mini_batch_gen.loaded:
+    with mini_batch_gen.loaders as mini_batch_gen.loaded_loaders:
         batch_gen = mini_batch_gen.data_gen(10)
         for idx in range(10):
             mini_batch = next(batch_gen)

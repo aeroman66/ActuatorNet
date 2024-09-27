@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import time
 
 from network_training_utensils.module.actuator_net import ActuatorNet
-from network_training_utensils.storage.data_loader_dyna import MiniBatchGenerator, JsonConfigDataLoader
+from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
 
 class SupervisedLearning:
     def __init__(self,
@@ -23,7 +23,7 @@ class SupervisedLearning:
                  weight_decay=0.01,
                  max_grad_norm=1.0,
                  shuffle=False,
-                 json_file=None,
+                 file_path=None,
                  device='cpu'):
         self.net = net
         self.storage = storage # 进行单独初始化
@@ -33,7 +33,7 @@ class SupervisedLearning:
         self.clip_param = clip_param
         self.max_grad_norm = max_grad_norm
         self.shuffle = shuffle
-        self.json_file = json_file
+        self.file_path = file_path
         self.device = device
 
         # 网络更新相关
@@ -101,14 +101,15 @@ if __name__ == "__main__":
     """
     因为目前数据不多，网络过于复杂可能出现过拟合的情况：选择降低参数数目，目前为 [64, 32, 16]
     """
-    file_path = 'data_sets/merged_motor_data.json'
+    # file_path = 'data_sets/merged_motor_data.json'
     # file_path = 'data_sets/go1_dataset_x0.25.json'
-    loader = JsonConfigDataLoader(file_path=file_path, history_length=15)
-    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=loader, history_length=15, mini_batch_size=32), num_learning_epochs=10, json_file=file_path)
-    with algo.storage.loader as algo.storage.loaded:
+    file_path = 'data_sets/smooth/go1_dataset_x0.25_smooth.json'
+    # loader = JsonConfigDataLoader(file_path=file_path, history_length=15)
+    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32), num_learning_epochs=10, file_path=file_path)
+    with algo.storage.loaders as algo.storage.loaded_loaders:
         losslist = []
         for iter in range(10):
-            print(f'iter: {iter}')
+            print(f'iter: {iter + 1}')
             loss_single = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
             losslist.append(loss_single)
         plt.plot(losslist)

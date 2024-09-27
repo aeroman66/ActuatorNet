@@ -1,6 +1,7 @@
 network_name: "ActuatorNet"
 # file_path: "data_sets/merged_motor_data.json"
-file_path: "data_sets/go1_dataset_x0.25.json"
+# file_path: "data_sets/go1_dataset_x0.25.json"
+file_path: "data_sets/smooth/go1_dataset_x0.25_smooth.json"
 device: "cpu"
 
 algo:
