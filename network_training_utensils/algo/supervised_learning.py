@@ -20,6 +20,7 @@ class SupervisedLearning:
                  num_learning_epochs=10,
                  clip_param=0.2,
                  learning_rate=1e-3,
+                 weight_decay=0.01,
                  max_grad_norm=1.0,
                  shuffle=False,
                  json_file=None,
@@ -37,9 +38,10 @@ class SupervisedLearning:
 
         # 网络更新相关
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         # self.criterion = nn.HuberLoss()  
         self.criterion = nn.MSELoss() 
-        self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
         # attributes
         self.dof_pos_batch = None

@@ -59,4 +59,5 @@ log/
 *.egg-info
 __pycache__
 *.pt
+*.pth
 *.json

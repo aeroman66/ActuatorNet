@@ -60,6 +60,7 @@ class Runner:
             batch_size=self.cfg.algo.batch_size,
             clip_param=self.cfg.algo.clip_param,
             learning_rate=self.cfg.algo.learning_rate,
+            weight_decay=self.cfg.algo.weight_decay,
             max_grad_norm=self.cfg.algo.max_grad_norm,
             shuffle=self.cfg.algo.shuffle,
             json_file=self.cfg.file_path,
@@ -77,6 +78,9 @@ class Runner:
             mean_loss = self.algo.update()
             end = time.time()
             time_consumed = end - start
+
+            self.writer.add_scalar('loss', mean_loss, iter)
+
             ep_info_dict = {
                     "iter": iter,
                     "loss": mean_loss,
@@ -95,6 +99,8 @@ class Runner:
                 self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{iter+1}.pth"))
                 # self.save_model(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
             ep_info.clear()
+
+        self.writer.close()
 
             
     # ***********************save & load**************************
