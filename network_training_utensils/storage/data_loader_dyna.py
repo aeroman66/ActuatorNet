@@ -196,24 +196,42 @@ class MiniBatchGenerator:
     def __iter__(self):
         return self
 
-    def __next__(self) -> List[List[Dict[str, Any]]]:
-        mini_batch = [[] for _ in range(len(self.loader.attrs))]
-        # with self.loader as load:
-        for _ in range(self.mini_batch_size):
-            try:
-                data = next(self.loaded)
-                for idx, attr in enumerate(data):
-                    mini_batch[idx].append(attr)
-            except StopIteration:
-                if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
-                    raise StopIteration
-                break
+    # def __next__(self) -> List[List[Dict[str, Any]]]:
+    #     mini_batch = [[] for _ in range(len(self.loader.attrs))]
+    #     # with self.loader as load:
+    #     for _ in range(self.mini_batch_size):
+    #         try:
+    #             data = next(self.loaded)
+    #             for idx, attr in enumerate(data):
+    #                 mini_batch[idx].append(attr)
+    #         except StopIteration:
+    #             if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
+    #                 raise StopIteration
+    #             break
         
-        if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
-            raise StopIteration
+    #     if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+    #         raise StopIteration
         
-        return mini_batch
+    #     return mini_batch
 
+    def data_gen(self, num_learning_epochs: int):
+        for _ in range(num_learning_epochs):
+            mini_batch = [[] for _ in range(len(self.loader.attrs))]
+            # with self.loader as load:
+            for _ in range(self.mini_batch_size):
+                try:
+                    data = next(self.loaded)
+                    for idx, attr in enumerate(data):
+                        mini_batch[idx].append(attr)
+                except StopIteration:
+                    if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
+                        raise StopIteration
+                    break
+            
+            if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                raise StopIteration
+            
+            yield mini_batch
 
 # Usage example
 if __name__ == "__main__":
@@ -221,8 +239,27 @@ if __name__ == "__main__":
     loader = JsonConfigDataLoader(file_path=file_path, history_length=10)
     mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=loader, history_length=10, mini_batch_size=2)
 
+    # with mini_batch_gen.loader as mini_batch_gen.loaded:
+    #     for idx, mini_batch in enumerate(mini_batch_gen):
+    #         print(f"Mini-batch {idx + 1}:")
+    #         print(f"  Batch Size: {len(mini_batch[0])}")
+    #         for attr, item in zip(mini_batch_gen.loader.attrs, mini_batch):
+    #             print(f"    {attr} length: {len(item)}")
+    #             print(f"    {attr} : {item}")
+    #         print()
+    # with mini_batch_gen.loader as mini_batch_gen.loaded:
+    #     batch_gen = mini_batch_gen.data_gen()
+    #     for idx, mini_batch in enumerate(batch_gen):
+    #         print(f"Mini-batch {idx + 1}:")
+    #         print(f"  Batch Size: {len(mini_batch[0])}")
+    #         for attr, item in zip(mini_batch_gen.loader.attrs, mini_batch):
+    #             print(f"    {attr} length: {len(item)}")
+    #             print(f"    {attr} : {item}")
+    #         print()
     with mini_batch_gen.loader as mini_batch_gen.loaded:
-        for idx, mini_batch in enumerate(mini_batch_gen):
+        batch_gen = mini_batch_gen.data_gen(10)
+        for idx in range(10):
+            mini_batch = next(batch_gen)
             print(f"Mini-batch {idx + 1}:")
             print(f"  Batch Size: {len(mini_batch[0])}")
             for attr, item in zip(mini_batch_gen.loader.attrs, mini_batch):

@@ -15,9 +15,9 @@ class SupervisedLearning:
     def __init__(self,
                  net : ActuatorNet,
                  storage : MiniBatchGenerator,
-                 num_learning_epochs=1,
                  history_length=15,
                  batch_size=32,
+                 num_learning_epochs=10,
                  clip_param=0.2,
                  learning_rate=1e-3,
                  max_grad_norm=1.0,
@@ -26,9 +26,9 @@ class SupervisedLearning:
                  device='cpu'):
         self.net = net
         self.storage = storage # 进行单独初始化
-        self.num_learning_epochs = num_learning_epochs
         self.history_length = history_length
         self.batch_size = batch_size
+        self.num_learning_epochs = num_learning_epochs
         self.clip_param = clip_param
         self.max_grad_norm = max_grad_norm
         self.shuffle = shuffle
@@ -47,15 +47,7 @@ class SupervisedLearning:
         self.dof_tor_batch = None
         self.tar_dof_pos_batch = None
 
-        # self._init_storage()
-
-    # def _init_storage(self):
-    #     self.storage = self._storage(file_path=self.json_file, 
-    #                                  loader=JsonConfigDataLoader(file_path=self.json_file, history_length=self.history_length),
-    #                                  history_length=self.history_length,
-    #                                  mini_batch_size=self.batch_size,
-    #                                  )
-    #     print(f"storage: {self.storage}")
+        self.batch_gen = self.storage.data_gen(num_learning_epochs=self.num_learning_epochs)
         
     def test_mode(self):
         self.net.eval()
@@ -67,43 +59,34 @@ class SupervisedLearning:
         return self.net.act_inference(obs)
     
     def update(self):
-        losslist = []
-        epoch = 0
-        start_time = time.time()
         # 1. 获取 batch
-        for mini_batch in self.storage:
-            epoch += 1
-            mini_batch = torch.Tensor(mini_batch).to(self.device)
-            self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
-            self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
-                self.dof_pos_batch.squeeze(0),
-                self.dof_vel_batch.squeeze(0),
-                self.dof_tor_batch.squeeze(0),
-                self.tar_dof_pos_batch.squeeze(0),
-            )
-            obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
-            action_inferenced = self.net.act_inference(obs)
-            action_inferenced = action_inferenced.squeeze(1)
-            # print("action_inferenced: ", action_inferenced.shape)
-            label = self.dof_tor_batch[:,-1]
-            # print("label: ", label.shape)
+        mini_batch = next(self.batch_gen)
+        mini_batch = torch.Tensor(mini_batch).to(self.device)
+        self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
+        self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
+            self.dof_pos_batch.squeeze(0),
+            self.dof_vel_batch.squeeze(0),
+            self.dof_tor_batch.squeeze(0),
+            self.tar_dof_pos_batch.squeeze(0),
+        )
+        obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
+        action_inferenced = self.net.act_inference(obs)
+        action_inferenced = action_inferenced.squeeze(1)
+        # print("action_inferenced: ", action_inferenced.shape)
+        label = self.dof_tor_batch[:,-1]
+        # print("label: ", label.shape)
 
-            # 2. 计算 loss
-            loss = self.criterion(action_inferenced, label)
-            # print("loss: ", loss.shape)
+        # 2. 计算 loss
+        loss = self.criterion(action_inferenced, label)
+        # print("loss: ", loss.shape)
 
-            # 3. 更新网络参数
-            self.optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
-            self.optimizer.step()
+        # 3. 更新网络参数
+        self.optimizer.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
+        self.optimizer.step()
 
-            end_time = time.time()
-            time_consumed = end_time - start_time
-
-            print(f"epoch: {epoch} with loss: {loss.item()} Using time: {time_consumed}s")
-            losslist.append(loss.item())
-        return losslist
+        return loss.item()
 
     def _construct_observation(self, dof_pos_batch, dof_vel_batch, tar_dof_pos_batch):
         # print("dof_pos_batch: ", dof_pos_batch.shape)
@@ -119,9 +102,13 @@ if __name__ == "__main__":
     file_path = 'data_sets/merged_motor_data.json'
     # file_path = 'data_sets/go1_dataset_x0.25.json'
     loader = JsonConfigDataLoader(file_path=file_path, history_length=15)
-    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=loader, history_length=15, mini_batch_size=32), json_file=file_path)
+    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=loader, history_length=15, mini_batch_size=32), num_learning_epochs=10, json_file=file_path)
     with algo.storage.loader as algo.storage.loaded:
-        losslist = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
+        losslist = []
+        for iter in range(10):
+            print(f'iter: {iter}')
+            loss_single = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
+            losslist.append(loss_single)
         plt.plot(losslist)
         plt.show()
 
