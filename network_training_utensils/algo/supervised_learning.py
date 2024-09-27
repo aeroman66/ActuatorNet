@@ -6,42 +6,39 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+import time
 
 from network_training_utensils.module.actuator_net import ActuatorNet
-from network_training_utensils.storage.data_loader_dyna import MiniBatchGenerator
+from network_training_utensils.storage.data_loader_dyna import MiniBatchGenerator, JsonConfigDataLoader
 
 class SupervisedLearning:
     def __init__(self,
                  net : ActuatorNet,
                  storage : MiniBatchGenerator,
                  num_learning_epochs=1,
-                 history_length=10,
+                 history_length=15,
                  batch_size=32,
                  clip_param=0.2,
-                 value_loss_coef=1.0,
                  learning_rate=1e-3,
                  max_grad_norm=1.0,
-                 use_clipped_value_loss=True,
                  shuffle=False,
                  json_file=None,
                  device='cpu'):
         self.net = net
-        self._storage = storage
-        self.storage = None # 进行单独初始化
+        self.storage = storage # 进行单独初始化
         self.num_learning_epochs = num_learning_epochs
         self.history_length = history_length
         self.batch_size = batch_size
         self.clip_param = clip_param
-        self.value_loss_coef = value_loss_coef
         self.max_grad_norm = max_grad_norm
-        self.use_clipped_value_loss = use_clipped_value_loss
         self.shuffle = shuffle
         self.json_file = json_file
         self.device = device
 
         # 网络更新相关
         self.learning_rate = learning_rate
-        self.criterion = nn.MSELoss()
+        # self.criterion = nn.HuberLoss()  
+        self.criterion = nn.MSELoss() 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate)
 
         # attributes
@@ -50,14 +47,15 @@ class SupervisedLearning:
         self.dof_tor_batch = None
         self.tar_dof_pos_batch = None
 
-        self._init_storage()
+        # self._init_storage()
 
-    def _init_storage(self):
-        self.storage = self._storage(file_path=self.json_file,
-                                     history_length=self.history_length,
-                                     mini_batch_size=self.batch_size,
-                                     )
-        print(f"storage: {self.storage}")
+    # def _init_storage(self):
+    #     self.storage = self._storage(file_path=self.json_file, 
+    #                                  loader=JsonConfigDataLoader(file_path=self.json_file, history_length=self.history_length),
+    #                                  history_length=self.history_length,
+    #                                  mini_batch_size=self.batch_size,
+    #                                  )
+    #     print(f"storage: {self.storage}")
         
     def test_mode(self):
         self.net.eval()
@@ -71,6 +69,7 @@ class SupervisedLearning:
     def update(self):
         losslist = []
         epoch = 0
+        start_time = time.time()
         # 1. 获取 batch
         for mini_batch in self.storage:
             epoch += 1
@@ -99,7 +98,10 @@ class SupervisedLearning:
             nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
-            print(f"epoch: {epoch} with loss: {loss.item()}")
+            end_time = time.time()
+            time_consumed = end_time - start_time
+
+            print(f"epoch: {epoch} with loss: {loss.item()} Using time: {time_consumed}s")
             losslist.append(loss.item())
         return losslist
 
@@ -111,9 +113,16 @@ class SupervisedLearning:
 
 
 if __name__ == "__main__":
-    algo = SupervisedLearning(net=ActuatorNet(input_size=40, output_size=1), storage=MiniBatchGenerator, json_file='data_sets/merged_motor_data.json')
-    losslist = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
-    plt.plot(losslist)
-    plt.show()
+    """
+    因为目前数据不多，网络过于复杂可能出现过拟合的情况：选择降低参数数目，目前为 [64, 32, 16]
+    """
+    file_path = 'data_sets/merged_motor_data.json'
+    # file_path = 'data_sets/go1_dataset_x0.25.json'
+    loader = JsonConfigDataLoader(file_path=file_path, history_length=15)
+    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=loader, history_length=15, mini_batch_size=32), json_file=file_path)
+    with algo.storage.loader as algo.storage.loaded:
+        losslist = algo.update() # 最后一个凑不齐 batch_size 的 batch 会让代码报错
+        plt.plot(losslist)
+        plt.show()
 
     print('Successfully update the network!')

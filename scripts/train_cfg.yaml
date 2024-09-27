@@ -1,5 +1,17 @@
 network_name: "ActuatorNet"
+file_path: "data_sets/merged_motor_data.json"
+device: "cpu"
 
 algo:
   name: "SupervisedLearning"
-  
+  history_length: &base 15
+  batch_size: 32
+  num_learning_epochs: 1
+  clip_param: 0.2
+  learning_rate: 0.001
+  max_grad_norm: 1.0
+  shuffle: False
+
+net:
+  half_input_size: *base
+  output_size: 1

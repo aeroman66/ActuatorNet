@@ -4,7 +4,7 @@ from pathlib import Path
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Configuration loader")
-    parser.add_argument("--config", type=str, default="go1.yaml", help="Configuration file name")
+    parser.add_argument("--config", type=str, default="scripts/train_cfg.yaml", help="Configuration file name")
     return parser.parse_args()
 
 def get_config_path(config_name):
