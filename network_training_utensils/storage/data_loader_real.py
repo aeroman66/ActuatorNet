@@ -124,9 +124,11 @@ class JsonConfigDataLoader:
         """
         if self.drop_last:
             if self.current_index + 1 >= len(self.data['dof_pos']) or self.current_index + self.history_length + 1 > len(self.data['dof_pos']):
+                # print("error 4")
                 raise StopIteration
         else:
             if self.current_index + 1 >= len(self.data['dof_pos']):
+                # print("error 3")
                 raise StopIteration
 
         index = self.indices[self.current_index]
@@ -190,6 +192,9 @@ class MiniBatchGenerator:
         self.history_length = history_length
         self.mini_batch_size = mini_batch_size
         self.drop_last = drop_last
+
+        self.consumed_set = set()
+
         self.loader = loader
         self.loaders = None
         self.loaders_splited = None
@@ -263,19 +268,30 @@ class MiniBatchGenerator:
         
         for _ in range(num_learning_epochs):
             mini_batch = [[] for _ in range(len(self.loader.attrs))]
-            for _ in range(self.mini_batch_size):
-                motor_id = random.randint(0, self.loader.num_motors - 1)
-                try:
-                    data = next(self.loaded_loaders[motor_id])
+            while len(mini_batch[0]) < self.mini_batch_size:
+                # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
+                motor_id = random.randint(0, len(self.loaders_splited.loaders) - 1)
+                while (len(self.consumed_set) < len(self.loaders_splited.loaders)) and (motor_id in self.consumed_set):
+                    motor_id = random.randint(0, len(self.loaders_splited.loaders) - 1)
+                try: 
+                    data = next(self.loaded_loaders[motor_id]) # 不能再使用总的 num_motor，要使用 train 中的 num_motor
                     for idx, attr in enumerate(data):
                         # attr = [motor_id] # to verify the sampling
                         mini_batch[idx].append(attr)
                 except StopIteration:
-                    if not mini_batch or (self.drop_last and len(mini_batch[0]) < self.mini_batch_size):
-                        raise StopIteration
+                    self.consumed_set.add(motor_id)
+                    # In our circumstances, we need to handle StopIteration diffierently depending on their cause.
+                    if not mini_batch:
+                        raise StopIteration('Not mini_batch?')
+                    if len(self.consumed_set) == len(self.loaders_splited.loaders):
+                        raise StopIteration('Data has ran out!')
+                    if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                        print('consumed_set', len(self.consumed_set))
+                        continue
                     break
             
             if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                print("error 1")
                 raise StopIteration
             
             yield mini_batch
@@ -284,11 +300,11 @@ class MiniBatchGenerator:
 if __name__ == "__main__":
     # file_path = 'data_sets/smooth/go1_dataset_x0.25_smooth.json'
     file_path = 'data_sets/merged_motor_data_ultimate.json'
-    mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32)
+    mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=5, mini_batch_size=2)
 
     print(f"Number of motors: {mini_batch_gen.loader.num_motors}")
     batch_gen = mini_batch_gen.data_gen(100, 'train')
-    with mini_batch_gen.loaders as mini_batch_gen.loaded_loaders:
+    with mini_batch_gen.loaders_splited as mini_batch_gen.loaded_loaders:
         for idx in range(100):
             mini_batch = next(batch_gen)
             print(f"Mini-batch {idx + 1}:")
