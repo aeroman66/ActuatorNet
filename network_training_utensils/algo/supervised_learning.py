@@ -49,7 +49,8 @@ class SupervisedLearning:
         self.dof_tor_batch = None
         self.tar_dof_pos_batch = None
 
-        self.batch_gen = self.storage.data_gen(num_learning_epochs=self.num_learning_epochs)
+        self.batch_gen = self.storage.data_gen(num_learning_epochs=self.num_learning_epochs, dataset='train')
+        # next(self.batch_gen)
         
     def test_mode(self):
         self.net.eval()

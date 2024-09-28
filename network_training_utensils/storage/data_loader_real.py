@@ -5,11 +5,8 @@ import numpy as np
 from typing import List, Dict, Any
 from dynaconf import Dynaconf
 
-from queue import Queue
-from threading import Thread
-
-
 """
+JSON 数据格式
 {
   "motor_0": {
     "dof_pos": [
@@ -111,7 +108,6 @@ class JsonConfigDataLoader:
         """
         self.file = open(self.file_path, 'r')
         # self.data = json.load(self.file)
-        # print("you've excuted me!!!")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -151,7 +147,7 @@ class JsonConfigDataLoader:
         data = [
             item['dof_pos'][start : end],
             item['dof_vel'][start : end],
-            item['dof_tor'][start : end],
+            item['dof_tor'][start + 1: end + 1], # 这里不写 + 1 损失更小的原因可能是网络直接学了一个类似kp kd 的控制器用上一时刻的数据直接算最后一位的 tor 值，而没有真正的去做预测工作
             item['tar_dof_pos'][start : end]
         ] # 换用 numpy 让单步训练时间从 1.85 s 下降到 1.4 s 左右
 
@@ -174,6 +170,16 @@ class LoaderManager:
             loader.__exit__(exc_type, exc_val, exc_tb)
 
 # 实现 batch 的生成
+def auto_initialize(func):
+    """自动实现生成器的初始化
+    用上装饰器啦，太优雅啦！
+    """
+    def wrapper(*args, **kwargs):
+        gen = func(*args, **kwargs)
+        next(gen)  # 自动执行初始化
+        return gen
+    return wrapper
+
 class MiniBatchGenerator:
     """
     通过 push 上面的类产生多条数据，来制作 mini_batch
@@ -182,13 +188,16 @@ class MiniBatchGenerator:
     def __init__(self, file_path: str, loader: JsonConfigDataLoader, history_length: int = 10, mini_batch_size: int = 32, drop_last: bool = True):
         self.file_path = file_path
         self.history_length = history_length
-        self.loader = loader
-        self.loaders = None
         self.mini_batch_size = mini_batch_size
         self.drop_last = drop_last
-        # self.prefetcher = DataPrefetcher(self.loader, num_prefetch=2)
+        self.loader = loader
+        self.loaders = None
+        self.loaders_splited = None
         self.loaded_loaders = None
         self.motor_iterators = None
+        self.train_loaded_loaders = None
+        self.val_loaded_loaders = None
+        self.test_loaded_loaders = None
 
         self._init_loader_list()
         print("you've reached here!")
@@ -199,11 +208,59 @@ class MiniBatchGenerator:
             loader_list.append(self.loader(id, self.file_path, self.history_length, self.drop_last))
             print((f"loader {id} has been initialized!"))
         self.loaders = LoaderManager(loader_list)
+        self._split_datasets()
+
+    def _split_datasets(self):
+        train_loaders, val_loaders, test_loaders = [], [], []
+        for loader in self.loaders.loaders:
+            data_size = len(loader.data['dof_pos'])
+            indices = np.arange(data_size)
+            np.random.shuffle(indices)
+            
+            train_size = int(0.6 * data_size)
+            val_size = int(0.2 * data_size)
+            
+            train_indices = indices[:train_size]
+            val_indices = indices[train_size:train_size+val_size]
+            test_indices = indices[train_size+val_size:]
+            
+            train_loader = self._create_subset_loader(loader, train_indices)
+            val_loader = self._create_subset_loader(loader, val_indices)
+            test_loader = self._create_subset_loader(loader, test_indices)
+            
+            train_loaders.append(train_loader)
+            val_loaders.append(val_loader)
+            test_loaders.append(test_loader)
+        
+        self.train_loaded_loaders = LoaderManager(train_loaders)
+        self.val_loaded_loaders = LoaderManager(val_loaders)
+        self.test_loaded_loaders = LoaderManager(test_loaders)
+
+    def _create_subset_loader(self, original_loader, indices):
+        subset_loader = self.loader(original_loader.motor_id, original_loader.file_path, original_loader.history_length, original_loader.drop_last)
+        subset_loader.data = {key: value[indices] for key, value in original_loader.data.items()}
+        subset_loader.indices = list(range(len(indices)))
+        return subset_loader
 
     def __iter__(self):
         return self
 
-    def data_gen(self, num_learning_epochs: int):
+    @auto_initialize
+    def data_gen(self, num_learning_epochs: int, dataset: str ='train'):
+        """‘预热’或‘初始化’，让生成器函数第一次调用时执行部分函数体
+        """
+        if dataset == 'train':
+            self.loaders_splited = self.train_loaded_loaders
+            print("train_loaded_loaders has been initialized!")
+        elif dataset == 'val':
+            self.loaders_splited = self.val_loaded_loaders
+        elif dataset == 'test':
+            self.loaders_splited = self.test_loaded_loaders
+        else:
+            raise ValueError("dataset must be 'train', 'val', or 'test'")
+        
+        yield None
+        
         for _ in range(num_learning_epochs):
             mini_batch = [[] for _ in range(len(self.loader.attrs))]
             for _ in range(self.mini_batch_size):
@@ -230,8 +287,8 @@ if __name__ == "__main__":
     mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32)
 
     print(f"Number of motors: {mini_batch_gen.loader.num_motors}")
+    batch_gen = mini_batch_gen.data_gen(100, 'train')
     with mini_batch_gen.loaders as mini_batch_gen.loaded_loaders:
-        batch_gen = mini_batch_gen.data_gen(100)
         for idx in range(100):
             mini_batch = next(batch_gen)
             print(f"Mini-batch {idx + 1}:")
