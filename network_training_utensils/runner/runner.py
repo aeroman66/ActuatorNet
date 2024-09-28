@@ -52,6 +52,7 @@ class Runner:
             net=self.net,
             storage=self.generator,
             num_learning_epochs=self.cfg.algo.num_learning_epochs,
+            num_testing_epochs=self.cfg.algo.num_testing_epochs,
             history_length=self.cfg.algo.history_length,
             batch_size=self.cfg.algo.batch_size,
             clip_param=self.cfg.algo.clip_param,
@@ -92,11 +93,38 @@ class Runner:
 
             if not (iter + 1) % self.cfg.runner.save_interval:
                 print(f"Saving model at {iter + 1}")
-                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{iter+1}.pth"))
+                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{iter+1}.pt"))
                 # self.save_model(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
             ep_info.clear()
 
         self.writer.close()
+
+    def test(self):
+        self.algo.test_mode()
+        total_loss = 0
+        num_batches = 0
+
+        # with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
+        # batch_gen = self.algo.storage.data_gen(self.cfg.algo.num_testing_epochs, dataset='test')
+        start_iter = self.current_learning_iteration
+        tot_iter = start_iter + self.cfg.algo.num_testing_epochs
+        for iter in range(start_iter, tot_iter):
+            try:
+                loss = self.algo.test_update()
+                total_loss += loss
+                num_batches += 1
+                print(f"Test batch {num_batches}, Loss: {loss:.4f}")
+            except StopIteration:
+                break
+
+            # avg_loss = total_loss / num_batches if num_batches > 0 else float('inf')
+            # print(f"Current Test Loss: {loss:.4f}")
+            self.writer.add_scalar('test_loss', loss, self.current_learning_iteration)
+
+            self.current_learning_iteration += 1
+
+        return total_loss / self.cfg.algo.num_testing_epochs
+
 
             
     # ***********************save & load**************************

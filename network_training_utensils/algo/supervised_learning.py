@@ -18,6 +18,7 @@ class SupervisedLearning:
                  history_length=15,
                  batch_size=32,
                  num_learning_epochs=10,
+                 num_testing_epochs=10,
                  clip_param=0.2,
                  learning_rate=1e-3,
                  weight_decay=0.01,
@@ -30,6 +31,7 @@ class SupervisedLearning:
         self.history_length = history_length
         self.batch_size = batch_size
         self.num_learning_epochs = num_learning_epochs
+        self.num_testing_epochs = num_testing_epochs
         self.clip_param = clip_param
         self.max_grad_norm = max_grad_norm
         self.shuffle = shuffle
@@ -49,7 +51,8 @@ class SupervisedLearning:
         self.dof_tor_batch = None
         self.tar_dof_pos_batch = None
 
-        self.batch_gen = self.storage.data_gen(num_learning_epochs=self.num_learning_epochs, dataset='train')
+        self.train_batch_gen = self.storage.data_gen(num_epochs=self.num_learning_epochs, dataset='train')
+        self.test_batch_gen = self.storage.data_gen(num_epochs=self.num_testing_epochs, dataset='test')
         # next(self.batch_gen)
         
     def test_mode(self):
@@ -63,7 +66,7 @@ class SupervisedLearning:
     
     def update(self):
         # 1. 获取 batch
-        mini_batch = next(self.batch_gen)
+        mini_batch = next(self.train_batch_gen)
         mini_batch = torch.Tensor(mini_batch).to(self.device)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
@@ -90,11 +93,35 @@ class SupervisedLearning:
         self.optimizer.step()
 
         return loss.item()
-
+    
+    def test_update(self):
+        # Get a batch from the test data generator
+        mini_batch = next(self.test_batch_gen)
+        mini_batch = torch.Tensor(mini_batch).to(self.device)
+        self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
+        self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
+            self.dof_pos_batch.squeeze(0),
+            self.dof_vel_batch.squeeze(0),
+            self.dof_tor_batch.squeeze(0),
+            self.tar_dof_pos_batch.squeeze(0),
+        )
+        
+        # Construct the observation
+        obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
+        
+        # Get the model's prediction
+        with torch.no_grad():
+            action_inferenced = self.net.act_inference(obs)
+            action_inferenced = action_inferenced.squeeze(1)
+        
+        # Calculate the loss
+        label = self.dof_tor_batch[:,-1]
+        loss = self.criterion(action_inferenced, label)
+        
+        return loss.item()
+    
     def _construct_observation(self, dof_pos_batch, dof_vel_batch, tar_dof_pos_batch):
-        # print("dof_pos_batch: ", dof_pos_batch.shape)
         obs = torch.cat((dof_pos_batch - tar_dof_pos_batch, dof_vel_batch), dim=1)
-        # print("obs:", obs.shape)
         return obs
 
 

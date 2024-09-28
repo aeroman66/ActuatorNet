@@ -251,7 +251,7 @@ class MiniBatchGenerator:
         return self
 
     @auto_initialize
-    def data_gen(self, num_learning_epochs: int, dataset: str ='train'):
+    def data_gen(self, num_epochs: int, dataset: str ='train'):
         """‘预热’或‘初始化’，让生成器函数第一次调用时执行部分函数体
         """
         if dataset == 'train':
@@ -266,7 +266,7 @@ class MiniBatchGenerator:
         
         yield None
         
-        for _ in range(num_learning_epochs):
+        for _ in range(num_epochs):
             mini_batch = [[] for _ in range(len(self.loader.attrs))]
             while len(mini_batch[0]) < self.mini_batch_size:
                 # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
@@ -286,7 +286,7 @@ class MiniBatchGenerator:
                     if len(self.consumed_set) == len(self.loaders_splited.loaders):
                         raise StopIteration('Data has ran out!')
                     if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
-                        print('consumed_set', len(self.consumed_set))
+                        # print('consumed_set', len(self.consumed_set))
                         continue
                     break
             
