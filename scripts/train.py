@@ -19,8 +19,8 @@ if __name__ == '__main__':
         log_dir=cfg.runner.log_dir,
     )
 
-    with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
-        runner.learn()
-        runner.test()
+    # with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
+    runner.learn()
+    runner.test()
 
     print("Training completed!")

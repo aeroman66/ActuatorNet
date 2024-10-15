@@ -92,12 +92,11 @@ class JsonConfigDataLoader:
             'dof_tor': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['dof_tor']),
             'tar_dof_pos': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['tar_dof_pos'])
         }
-        print(self.data.keys())
+        # print(self.data.keys())
         end = time.time()
-        print(f"Data loading time: {end - start} seconds")
+        # print(f"Data loading time: {end - start} seconds")
 
         self.indices = list(range(len(self.data['dof_pos'])))
-        self.shuffle_indices() # 不放在 __init__ 中是因为我们希望每次迭代都进行 shuffle。最后放哪还得研究
     
     def shuffle_indices(self):
         random.shuffle(self.indices)
@@ -108,6 +107,9 @@ class JsonConfigDataLoader:
         """
         self.file = open(self.file_path, 'r')
         # self.data = json.load(self.file)
+        self.shuffle_indices() # 不放在 __init__ 中是因为我们希望每次迭代都进行 shuffle。最后放哪还得研究
+        # print('data has been shuffled')
+        self.current_index = 0
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -205,13 +207,13 @@ class MiniBatchGenerator:
         self.test_loaded_loaders = None
 
         self._init_loader_list()
-        print("you've reached here!")
+        # print("you've reached here!")
 
     def _init_loader_list(self):
         loader_list = []
         for id in range(self.loader.num_motors):
             loader_list.append(self.loader(id, self.file_path, self.history_length, self.drop_last))
-            print((f"loader {id} has been initialized!"))
+            # print((f"loader {id} has been initialized!"))
         self.loaders = LoaderManager(loader_list)
         self._split_datasets()
 
@@ -220,7 +222,7 @@ class MiniBatchGenerator:
         for loader in self.loaders.loaders:
             data_size = len(loader.data['dof_pos'])
             indices = np.arange(data_size)
-            np.random.shuffle(indices)
+            # np.random.shuffle(indices) # 这个打乱顺序好像有问题啊
             
             train_size = int(0.6 * data_size)
             val_size = int(0.2 * data_size)
@@ -251,12 +253,14 @@ class MiniBatchGenerator:
         return self
 
     @auto_initialize
-    def data_gen(self, num_epochs: int, dataset: str ='train'):
+    def data_gen(self, dataset: str ='train'):
         """‘预热’或‘初始化’，让生成器函数第一次调用时执行部分函数体
         """
+        self.consumed_set = set()
+        # print("reset consumed_set!")
         if dataset == 'train':
             self.loaders_splited = self.train_loaded_loaders
-            print("train_loaded_loaders has been initialized!")
+            # print("train_loaded_loaders has been initialized!")
         elif dataset == 'val':
             self.loaders_splited = self.val_loaded_loaders
         elif dataset == 'test':
@@ -266,7 +270,7 @@ class MiniBatchGenerator:
         
         yield None
         
-        for _ in range(num_epochs):
+        while True:
             mini_batch = [[] for _ in range(len(self.loader.attrs))]
             while len(mini_batch[0]) < self.mini_batch_size:
                 # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
@@ -298,7 +302,6 @@ class MiniBatchGenerator:
 
 # Usage example
 if __name__ == "__main__":
-    # file_path = 'data_sets/smooth/go1_dataset_x0.25_smooth.json'
     file_path = 'data_sets/merged_motor_data_ultimate.json'
     mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=5, mini_batch_size=2)
 

@@ -1,4 +1,5 @@
 network_name: "ActuatorNet"
+policy_path: "checkpoints/model_100.pt"
 file_path: "data_sets/merged_motor_data_ultimate_pro_plus.json"
 device: "cpu"
 
@@ -6,7 +7,7 @@ algo:
   name: "SupervisedLearning"
   history_length: &base 15
   batch_size: 32
-  num_learning_epochs: 100
+  num_learning_epochs: 5000
   num_testing_epochs: 400
   clip_param: 0.2
   learning_rate: 0.001
@@ -19,6 +20,6 @@ net:
   output_size: 1
 
 runner:
-  save_interval: 50
+  save_interval: 2500
   save_dir: "checkpoints"
   log_dir: "logs"

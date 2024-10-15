@@ -21,7 +21,7 @@ class SupervisedLearning:
                  num_testing_epochs=10,
                  clip_param=0.2,
                  learning_rate=1e-3,
-                 weight_decay=0.01,
+                 weight_decay=0.001,
                  max_grad_norm=1.0,
                  shuffle=False,
                  file_path=None,
@@ -51,8 +51,8 @@ class SupervisedLearning:
         self.dof_tor_batch = None
         self.tar_dof_pos_batch = None
 
-        self.train_batch_gen = self.storage.data_gen(num_epochs=self.num_learning_epochs, dataset='train')
-        self.test_batch_gen = self.storage.data_gen(num_epochs=self.num_testing_epochs, dataset='test')
+        self.train_batch_gen = None
+        self.test_batch_gen = None
         # next(self.batch_gen)
         
     def test_mode(self):

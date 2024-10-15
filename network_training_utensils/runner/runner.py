@@ -68,60 +68,73 @@ class Runner:
         self.train_mode()
         ep_info = []
 
-        start_iter = self.current_learning_iteration
-        tot_iter = start_iter + self.cfg.algo.num_learning_epochs
-        for iter in range(start_iter, tot_iter):
-            start = time.time()
-            mean_loss = self.algo.update()
-            end = time.time()
-            time_consumed = end - start
+        for epoch in range(self.cfg.algo.num_learning_epochs):
+            with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
+                self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train')
 
-            self.writer.add_scalar('loss', mean_loss, iter)
-
+                # start_iter = self.current_learning_iteration
+                # tot_iter = start_iter + self.cfg.algo.num_learning_epochs
+                # for iter in range(start_iter, tot_iter):
+                iter = 0
+                tot_loss = 0
+                start = time.time()
+                while True:
+                    try:
+                        loss = self.algo.update()
+                        tot_loss += loss
+                        iter += 1
+                    except RuntimeError:
+                        break
+                end = time.time()
+                time_consumed = end - start
+            mean_loss = tot_loss / iter
+            self.writer.add_scalar('loss', mean_loss, epoch)
             ep_info_dict = {
-                    "iter": iter,
+                    "epoch": epoch + 1,
                     "loss": mean_loss,
                     "time": time_consumed
                 }
             ep_info.append(ep_info_dict)
-            print(f"Epoch: {iter + 1}/{tot_iter}")
+            print(f"Epoch: {epoch + 1}/{self.cfg.algo.num_learning_epochs}")
             print(f"Loss: {mean_loss:.4f}")
             print(f"Time: {time_consumed:.2f}s")
             print("-" * 30)
-            
-            self.current_learning_iteration = iter
+                
+            # self.current_learning_iteration = iter
 
-            if not (iter + 1) % self.cfg.runner.save_interval:
-                print(f"Saving model at {iter + 1}")
-                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{iter+1}.pt"))
-                # self.save_model(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
+            if not (epoch + 1) % self.cfg.runner.save_interval:
+                print(f"Saving model at {epoch + 1}")
+                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{epoch+1}.pt"))
             ep_info.clear()
+
 
         self.writer.close()
 
     def test(self):
-        self.algo.test_mode()
-        total_loss = 0
-        num_batches = 0
+        with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
+            self.algo.test_mode()
+            total_loss = 0
+            num_batches = 0
+            self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test')
 
-        # with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
-        # batch_gen = self.algo.storage.data_gen(self.cfg.algo.num_testing_epochs, dataset='test')
-        start_iter = self.current_learning_iteration
-        tot_iter = start_iter + self.cfg.algo.num_testing_epochs
-        for iter in range(start_iter, tot_iter):
-            try:
-                loss = self.algo.test_update()
-                total_loss += loss
-                num_batches += 1
-                print(f"Test batch {num_batches}, Loss: {loss:.4f}")
-            except StopIteration:
-                break
+            # with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
+            # batch_gen = self.algo.storage.data_gen(self.cfg.algo.num_testing_epochs, dataset='test')
+            start_iter = self.current_learning_iteration
+            tot_iter = start_iter + self.cfg.algo.num_testing_epochs
+            for iter in range(start_iter, tot_iter):
+                try:
+                    loss = self.algo.test_update()
+                    total_loss += loss
+                    num_batches += 1
+                    print(f"Test batch {num_batches}, Loss: {loss:.4f}")
+                except RuntimeError:
+                    break
 
-            # avg_loss = total_loss / num_batches if num_batches > 0 else float('inf')
-            # print(f"Current Test Loss: {loss:.4f}")
-            self.writer.add_scalar('test_loss', loss, self.current_learning_iteration)
+                # avg_loss = total_loss / num_batches if num_batches > 0 else float('inf')
+                # print(f"Current Test Loss: {loss:.4f}")
+                self.writer.add_scalar('test_loss', loss, self.current_learning_iteration)
 
-            self.current_learning_iteration += 1
+                self.current_learning_iteration += 1
 
         return total_loss / self.cfg.algo.num_testing_epochs
 
