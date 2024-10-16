@@ -19,30 +19,11 @@ if __name__ == '__main__':
         log_dir=cfg.runner.log_dir,
     )
 
-    # with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
-        # runner.learn()
     runner.load_model(cfg.policy_path)
     print("Model loaded successfully!")
     runner.test()
 
-    # with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
-        # runner.load_model(cfg.policy_path)
-        # runner.learn()
-    runner.test()
-
-    # runner2 = Runner(
-    #     algo=SupervisedLearning,
-    #     loader=JsonConfigDataLoader,
-    #     generator=MiniBatchGenerator,
-    #     net=ActuatorNet,
-    #     cfg=cfg,
-    #     save_dir=cfg.runner.save_dir,
-    #     log_dir=cfg.runner.log_dir,
-    # )
-
-    # with runner2.algo.storage.loaders as runner2.algo.storage.loaded_loaders:
-    #     runner2.load_model(cfg.policy_path)
-    #     print("Model loaded successfully!")
-    #     runner2.test()
+    for id in range(12):
+        runner.test_id(id)
 
     print("Testing completed!")

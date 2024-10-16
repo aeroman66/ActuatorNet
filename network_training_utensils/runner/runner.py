@@ -29,6 +29,7 @@ class Runner:
         self.current_learning_iteration = 0
         self.tot_timesteps = 0
         self.tot_time = 0
+        self.num_test = 0
 
         self.ifload = False
 
@@ -111,14 +112,14 @@ class Runner:
         self.writer.close()
 
     def test(self):
+        self.num_test += 1
+        self.current_learning_iteration = 0
         with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
             self.algo.test_mode()
             total_loss = 0
             num_batches = 0
             self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test')
 
-            # with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
-            # batch_gen = self.algo.storage.data_gen(self.cfg.algo.num_testing_epochs, dataset='test')
             start_iter = self.current_learning_iteration
             tot_iter = start_iter + self.cfg.algo.num_testing_epochs
             for iter in range(start_iter, tot_iter):
@@ -130,14 +131,33 @@ class Runner:
                 except RuntimeError:
                     break
 
-                # avg_loss = total_loss / num_batches if num_batches > 0 else float('inf')
-                # print(f"Current Test Loss: {loss:.4f}")
-                self.writer.add_scalar('test_loss', loss, self.current_learning_iteration)
-
+                self.writer.add_scalar(f'test_{self.num_test}_loss', loss, self.current_learning_iteration)
                 self.current_learning_iteration += 1
 
         return total_loss / self.cfg.algo.num_testing_epochs
+    
+    def test_id(self, id: int = None):
+        self.current_learning_iteration = 0
+        with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
+            self.algo.test_mode()
+            total_loss = 0
+            num_batches = 0
+            self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test', id=id)
 
+            start_iter = self.current_learning_iteration
+            tot_iter = start_iter + self.cfg.algo.num_testing_epochs
+            for iter in range(start_iter, tot_iter):
+                try:
+                    loss = self.algo.test_update()
+                    total_loss += loss
+                    num_batches += 1
+                    print(f"Test batch {num_batches}, Loss: {loss:.4f}")
+                except RuntimeError:
+                    break
+
+                self.writer.add_scalar(f'motor_{id}_loss', loss, self.current_learning_iteration)
+                self.current_learning_iteration += 1
+        return total_loss / self.cfg.algo.num_testing_epochs
 
             
     # ***********************save & load**************************
@@ -154,9 +174,9 @@ class Runner:
         os.chmod(file_dir, 0o777)
         torch.save(saved_dict, file_path)
 
-    def load_model(self, file_path, load_optimizer=True):
+    def load_model(self, file_path, load_optimizer=False):
         try:
-            loaded_dict = torch.load(file_path, map_location=torch.device('cpu'))
+            loaded_dict = torch.load(file_path, map_location=torch.device('cpu'), weights_only=True)
             print('File loaded:)')    
         except FileNotFoundError:
             print(f"File '{file_path}' missing:(")

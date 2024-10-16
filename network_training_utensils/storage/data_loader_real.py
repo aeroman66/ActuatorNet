@@ -253,7 +253,7 @@ class MiniBatchGenerator:
         return self
 
     @auto_initialize
-    def data_gen(self, dataset: str ='train'):
+    def data_gen(self, dataset: str ='train', id: int = None):
         """‘预热’或‘初始化’，让生成器函数第一次调用时执行部分函数体
         """
         self.consumed_set = set()
@@ -271,34 +271,64 @@ class MiniBatchGenerator:
         yield None
         
         while True:
-            mini_batch = [[] for _ in range(len(self.loader.attrs))]
-            while len(mini_batch[0]) < self.mini_batch_size:
-                # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
-                motor_id = random.randint(0, len(self.loaders_splited.loaders) - 1)
-                while (len(self.consumed_set) < len(self.loaders_splited.loaders)) and (motor_id in self.consumed_set):
+            if not id and id != 0:
+                # print('you are here!')
+                mini_batch = [[] for _ in range(len(self.loader.attrs))]
+                while len(mini_batch[0]) < self.mini_batch_size:
+                    # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
                     motor_id = random.randint(0, len(self.loaders_splited.loaders) - 1)
-                try: 
-                    data = next(self.loaded_loaders[motor_id]) # 不能再使用总的 num_motor，要使用 train 中的 num_motor
-                    for idx, attr in enumerate(data):
-                        # attr = [motor_id] # to verify the sampling
-                        mini_batch[idx].append(attr)
-                except StopIteration:
-                    self.consumed_set.add(motor_id)
-                    # In our circumstances, we need to handle StopIteration diffierently depending on their cause.
-                    if not mini_batch:
-                        raise StopIteration('Not mini_batch?')
-                    if len(self.consumed_set) == len(self.loaders_splited.loaders):
-                        raise StopIteration('Data has ran out!')
-                    if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
-                        # print('consumed_set', len(self.consumed_set))
-                        continue
-                    break
-            
-            if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
-                print("error 1")
-                raise StopIteration
-            
-            yield mini_batch
+                    while (len(self.consumed_set) < len(self.loaders_splited.loaders)) and (motor_id in self.consumed_set):
+                        motor_id = random.randint(0, len(self.loaders_splited.loaders) - 1)
+                    try: 
+                        data = next(self.loaded_loaders[motor_id]) # 不能再使用总的 num_motor，要使用 train 中的 num_motor
+                        for idx, attr in enumerate(data):
+                            # attr = [motor_id] # to verify the sampling
+                            mini_batch[idx].append(attr)
+                    except StopIteration:
+                        self.consumed_set.add(motor_id)
+                        # In our circumstances, we need to handle StopIteration diffierently depending on their cause.
+                        if not mini_batch:
+                            raise StopIteration('Not mini_batch?')
+                        if len(self.consumed_set) == len(self.loaders_splited.loaders):
+                            raise StopIteration('Data has ran out!')
+                        if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                            # print('consumed_set', len(self.consumed_set))
+                            continue
+                        break
+                
+                if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                    print("error 1")
+                    raise StopIteration
+                
+                yield mini_batch
+            else:
+                mini_batch = [[] for _ in range(len(self.loader.attrs))]
+                max_multiple = len(self.loaders_splited.loaders) / 12 - 1
+                while len(mini_batch[0]) < self.mini_batch_size:
+                    multiple = random.randint(0, max_multiple)
+                    motor_id = id + 12 * multiple
+                    while (len(self.consumed_set) < len(self.loaders_splited.loaders) / 12) and (motor_id in self.consumed_set):
+                        multiple = random.randint(0, max_multiple)
+                        motor_id = id + 12 * multiple
+                    try: 
+                        data = next(self.loaded_loaders[motor_id])
+                        for idx, attr in enumerate(data):
+                            mini_batch[idx].append(attr)
+                    except StopIteration:
+                        self.consumed_set.add(motor_id)
+                        if not mini_batch:
+                            raise StopIteration('Not mini_batch?')
+                        if len(self.consumed_set) == len(self.loaders_splited.loaders):
+                            raise StopIteration('Data has ran out!')
+                        if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                            continue
+                        break
+                
+                if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                    print('are u here?')
+                    raise StopIteration
+                
+                yield mini_batch
 
 # Usage example
 if __name__ == "__main__":

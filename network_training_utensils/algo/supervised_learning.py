@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 import matplotlib.pyplot as plt
 import time
 
@@ -67,7 +68,7 @@ class SupervisedLearning:
     def update(self):
         # 1. 获取 batch
         mini_batch = next(self.train_batch_gen)
-        mini_batch = torch.Tensor(mini_batch).to(self.device)
+        mini_batch = torch.Tensor(np.array(mini_batch)).to(self.device)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
             self.dof_pos_batch.squeeze(0),
@@ -97,7 +98,7 @@ class SupervisedLearning:
     def test_update(self):
         # Get a batch from the test data generator
         mini_batch = next(self.test_batch_gen)
-        mini_batch = torch.Tensor(mini_batch).to(self.device)
+        mini_batch = torch.Tensor(np.array(mini_batch)).to(self.device)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
             self.dof_pos_batch.squeeze(0),
