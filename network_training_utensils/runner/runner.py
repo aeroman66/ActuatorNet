@@ -37,6 +37,7 @@ class Runner:
         self.net = net(
             input_size=self.cfg.net.half_input_size * 2,
             output_size=self.cfg.net.output_size,
+            hidden_size=self.cfg.net.hidden_size,
             )
         # 感觉还是应该定义成实例变量，因为需要保证在整个类的生命周期内都活着
         # self.loader = loader(
@@ -65,13 +66,13 @@ class Runner:
             device=self.cfg.device
         )
     # ************************train**************************
-    def learn(self, init_at_random_ep_len : bool = False):
+    def learn(self, id: int = None, init_at_random_ep_len : bool = False):
         self.train_mode()
         ep_info = []
 
         for epoch in range(self.cfg.algo.num_learning_epochs):
             with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
-                self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train')
+                self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train', id=id)
 
                 # start_iter = self.current_learning_iteration
                 # tot_iter = start_iter + self.cfg.algo.num_learning_epochs
@@ -111,32 +112,36 @@ class Runner:
 
         self.writer.close()
 
-    def test(self):
-        self.num_test += 1
-        self.current_learning_iteration = 0
-        with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
-            self.algo.test_mode()
-            total_loss = 0
-            num_batches = 0
-            self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test')
+    # def test(self):
+    #     self.num_test += 1
+    #     self.current_learning_iteration = 0
+    #     with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
+    #         self.algo.test_mode()
+    #         total_loss = 0
+    #         num_batches = 0
+    #         self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test')
 
-            start_iter = self.current_learning_iteration
-            tot_iter = start_iter + self.cfg.algo.num_testing_epochs
-            for iter in range(start_iter, tot_iter):
-                try:
-                    loss = self.algo.test_update()
-                    total_loss += loss
-                    num_batches += 1
-                    print(f"Test batch {num_batches}, Loss: {loss:.4f}")
-                except RuntimeError:
-                    break
+    #         start_iter = self.current_learning_iteration
+    #         tot_iter = start_iter + self.cfg.algo.num_testing_epochs
+    #         for iter in range(start_iter, tot_iter):
+    #             try:
+    #                 loss = self.algo.test_update()
+    #                 total_loss += loss
+    #                 num_batches += 1
+    #                 print(f"Test batch {num_batches}, Loss: {loss:.4f}")
+    #             except RuntimeError:
+    #                 break
 
-                self.writer.add_scalar(f'test_{self.num_test}_loss', loss, self.current_learning_iteration)
-                self.current_learning_iteration += 1
+    #             self.writer.add_scalar(f'test_{self.num_test}_loss', loss, self.current_learning_iteration)
+    #             self.current_learning_iteration += 1
 
-        return total_loss / self.cfg.algo.num_testing_epochs
+    #     return total_loss / self.cfg.algo.num_testing_epochs
     
-    def test_id(self, id: int = None):
+    def test(self, id: int = None):
+        '''
+        input id to perform this operation on the specific motor.
+        Without an input id, the operation will be performed on all motors.
+        '''
         self.current_learning_iteration = 0
         with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
             self.algo.test_mode()
@@ -194,9 +199,17 @@ class Runner:
 
     # *************************modes******************************
     def train_mode(self):
+        '''
+        在训练模式中网络会把所有 latent 值全部记录下来
+        所需要的内存会比较大
+        '''
         self.net.train()
 
     def eval_mode(self):
+        '''
+        网络只会给出最后的结果
+        对内存消耗没那么大
+        '''
         self.net.eval()
 
 if __name__ == "__main__":

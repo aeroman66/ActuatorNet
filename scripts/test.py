@@ -21,9 +21,9 @@ if __name__ == '__main__':
 
     runner.load_model(cfg.policy_path)
     print("Model loaded successfully!")
-    runner.test()
+    # runner.test()
 
     for id in range(12):
-        runner.test_id(id)
+        runner.test(id)
 
     print("Testing completed!")

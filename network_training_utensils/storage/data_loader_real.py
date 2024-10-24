@@ -65,7 +65,7 @@ class JsonConfigDataLoader:
     一个 batch 应该需要提供多次训练
     """
     attrs = ('dof_pos', 'dof_vel', 'dof_tor', 'tar_dof_pos')
-    num_motors = 96
+    num_motors = 12
     _shared_data = None
 
     def __init__(self, motor_id: int, file_path: str, history_length: int = 10, drop_last: bool = True):
@@ -85,16 +85,12 @@ class JsonConfigDataLoader:
             print(f"Number of motors: {JsonConfigDataLoader.num_motors}")
 
         # 将数据转换为NumPy数组
-        start = time.time()
         self.data = {
             'dof_pos': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['dof_pos']),
             'dof_vel': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['dof_vel']),
             'dof_tor': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['dof_tor']),
             'tar_dof_pos': np.array(JsonConfigDataLoader._shared_data[f'motor_{self.motor_id}']['tar_dof_pos'])
         }
-        # print(self.data.keys())
-        end = time.time()
-        # print(f"Data loading time: {end - start} seconds")
 
         self.indices = list(range(len(self.data['dof_pos'])))
     
@@ -197,7 +193,7 @@ class MiniBatchGenerator:
 
         self.consumed_set = set()
 
-        self.loader = loader
+        self.loader = loader # 这里 loader 没有执行初始化函数！所以 num_motor 是有问题的。这也太坑了吧！！！
         self.loaders = None
         self.loaders_splited = None
         self.loaded_loaders = None
@@ -211,7 +207,9 @@ class MiniBatchGenerator:
 
     def _init_loader_list(self):
         loader_list = []
-        for id in range(self.loader.num_motors):
+        loader_list.append(self.loader(0, self.file_path, self.history_length, self.drop_last))
+        print(f"num_motors: {self.loader.num_motors}")
+        for id in range(1, self.loader.num_motors):
             loader_list.append(self.loader(id, self.file_path, self.history_length, self.drop_last))
             # print((f"loader {id} has been initialized!"))
         self.loaders = LoaderManager(loader_list)
@@ -272,7 +270,6 @@ class MiniBatchGenerator:
         
         while True:
             if not id and id != 0:
-                # print('you are here!')
                 mini_batch = [[] for _ in range(len(self.loader.attrs))]
                 while len(mini_batch[0]) < self.mini_batch_size:
                     # print(f"Num_motors: {len(self.loaders_splited.loaders)}")
@@ -292,7 +289,6 @@ class MiniBatchGenerator:
                         if len(self.consumed_set) == len(self.loaders_splited.loaders):
                             raise StopIteration('Data has ran out!')
                         if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
-                            # print('consumed_set', len(self.consumed_set))
                             continue
                         break
                 
@@ -307,6 +303,8 @@ class MiniBatchGenerator:
                 while len(mini_batch[0]) < self.mini_batch_size:
                     multiple = random.randint(0, max_multiple)
                     motor_id = id + 12 * multiple
+                    # print(len(self.loaders_splited.loaders))
+                    # print(len(self.train_loaded_loaders.loaders))
                     while (len(self.consumed_set) < len(self.loaders_splited.loaders) / 12) and (motor_id in self.consumed_set):
                         multiple = random.randint(0, max_multiple)
                         motor_id = id + 12 * multiple
@@ -316,11 +314,13 @@ class MiniBatchGenerator:
                             mini_batch[idx].append(attr)
                     except StopIteration:
                         self.consumed_set.add(motor_id)
+                        # print('consumed_set', len(self.consumed_set))
                         if not mini_batch:
                             raise StopIteration('Not mini_batch?')
                         if len(self.consumed_set) == len(self.loaders_splited.loaders):
                             raise StopIteration('Data has ran out!')
                         if self.drop_last and len(mini_batch[0]) < self.mini_batch_size:
+                            # print('hello?')
                             continue
                         break
                 

@@ -1,10 +1,10 @@
 network_name: "ActuatorNet"
-file_path: "data_sets/merged_motor_data_ultimate_pro_plus.json"
+file_path: "data_sets/merged_motor_data_ultimate_pro_max_plus.json"
 device: "cpu"
 
 algo:
   name: "SupervisedLearning"
-  history_length: &base 15
+  history_length: &base 10
   batch_size: 32
   num_learning_epochs: 100
   num_testing_epochs: 400
@@ -17,8 +17,9 @@ algo:
 net:
   half_input_size: *base
   output_size: 1
+  hidden_size: [64, 128, 64, 32, 16]
 
 runner:
-  save_interval: 50
+  save_interval: 5
   save_dir: "checkpoints"
   log_dir: "logs"

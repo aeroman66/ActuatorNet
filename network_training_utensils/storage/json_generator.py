@@ -185,7 +185,7 @@ def merge_json_files(input_dir, output_file):
     print(f"Merged {motor_count} motors into {output_file}")
 
 if __name__ == "__main__":
-    input_path = 'data_sets/many_data'
+    input_path = 'data_sets/validData'
     output_path = 'data_sets/exploited'
     process_all_files_in_directory(input_path, output_path, operation_func)
-    merge_json_files(output_path, 'data_sets/merged_motor_data_ultimate_pro_plus.json')
+    merge_json_files(output_path, 'data_sets/merged_motor_data_ultimate_pro_max_plus.json')
