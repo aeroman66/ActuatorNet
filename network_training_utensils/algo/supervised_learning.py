@@ -79,7 +79,7 @@ class SupervisedLearning:
         obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
         action_inferenced = self.net.act_inference(obs)
         action_inferenced = action_inferenced.squeeze(1)
-        # print("action_inferenced: ", action_inferenced.shape)
+        # print("action_inferenced: ", action_inferenced)
         label = self.dof_tor_batch[:,-1]
         # print("label: ", label.shape)
 

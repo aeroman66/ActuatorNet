@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 import  torch
 from torch.utils.tensorboard import SummaryWriter
-from collections import deque
+import matplotlib.pyplot as plt
 import time
 
 from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
@@ -69,14 +69,12 @@ class Runner:
     def learn(self, id: int = None, init_at_random_ep_len : bool = False):
         self.train_mode()
         ep_info = []
+        mean_losses_test = []
+        mean_losses_train = []
 
         for epoch in range(self.cfg.algo.num_learning_epochs):
             with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
                 self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train', id=id)
-
-                # start_iter = self.current_learning_iteration
-                # tot_iter = start_iter + self.cfg.algo.num_learning_epochs
-                # for iter in range(start_iter, tot_iter):
                 iter = 0
                 tot_loss = 0
                 start = time.time()
@@ -101,41 +99,22 @@ class Runner:
             print(f"Loss: {mean_loss:.4f}")
             print(f"Time: {time_consumed:.2f}s")
             print("-" * 30)
-                
-            # self.current_learning_iteration = iter
 
+            # 对模型进行测试，以确定是否需要早停
+            mean_loss_test = self.test(id=id)
+            mean_losses_test.append(mean_loss_test)
+            mean_losses_train.append(mean_loss)
+            self.plot_loss(test_loss=mean_losses_test, train_loss=mean_losses_train)
+
+            # 检查是否需要保存当前模型参数
             if not (epoch + 1) % self.cfg.runner.save_interval:
                 print(f"Saving model at {epoch + 1}")
-                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{epoch+1}.pt"))
+                self.save_model(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), f"{self.save_dir}/model_{epoch+1}_id{id}.pt"))
             ep_info.clear()
 
 
         self.writer.close()
-
-    # def test(self):
-    #     self.num_test += 1
-    #     self.current_learning_iteration = 0
-    #     with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
-    #         self.algo.test_mode()
-    #         total_loss = 0
-    #         num_batches = 0
-    #         self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test')
-
-    #         start_iter = self.current_learning_iteration
-    #         tot_iter = start_iter + self.cfg.algo.num_testing_epochs
-    #         for iter in range(start_iter, tot_iter):
-    #             try:
-    #                 loss = self.algo.test_update()
-    #                 total_loss += loss
-    #                 num_batches += 1
-    #                 print(f"Test batch {num_batches}, Loss: {loss:.4f}")
-    #             except RuntimeError:
-    #                 break
-
-    #             self.writer.add_scalar(f'test_{self.num_test}_loss', loss, self.current_learning_iteration)
-    #             self.current_learning_iteration += 1
-
-    #     return total_loss / self.cfg.algo.num_testing_epochs
+        return mean_loss
     
     def test(self, id: int = None):
         '''
@@ -156,7 +135,7 @@ class Runner:
                     loss = self.algo.test_update()
                     total_loss += loss
                     num_batches += 1
-                    print(f"Test batch {num_batches}, Loss: {loss:.4f}")
+                    # print(f"Test batch {num_batches}, Loss: {loss:.4f}")
                 except RuntimeError:
                     break
 
@@ -182,7 +161,7 @@ class Runner:
     def load_model(self, file_path, load_optimizer=False):
         try:
             loaded_dict = torch.load(file_path, map_location=torch.device('cpu'), weights_only=True)
-            print('File loaded:)')    
+            print('File loaded:-)')    
         except FileNotFoundError:
             print(f"File '{file_path}' missing:(")
 
@@ -211,6 +190,24 @@ class Runner:
         对内存消耗没那么大
         '''
         self.net.eval()
+
+    # *************************utiles******************************
+    def plot_loss(self, test_loss, train_loss):
+        '''
+        绘制 test 和 train 的 loss 曲线
+        '''
+        plt.figure(figsize=(18, 6))
+        # plt.plot(dof_tor_values)
+        plt.plot(test_loss)
+        plt.plot(train_loss)
+        plt.legend(['test loss', 'train loss'])
+        plt.title('test and train loss')
+        plt.xlabel('epoch')
+        plt.ylabel('loss')
+        plt.grid(True)
+
+        plt.savefig(f'img/test & mean loss.png')
+        plt.close()
 
 if __name__ == "__main__":
     runner = Runner(

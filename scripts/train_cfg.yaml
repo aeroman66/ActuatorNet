@@ -4,9 +4,9 @@ device: "cpu"
 
 algo:
   name: "SupervisedLearning"
-  history_length: &base 10
+  history_length: &base 15
   batch_size: 32
-  num_learning_epochs: 100
+  num_learning_epochs: 50
   num_testing_epochs: 400
   clip_param: 0.2
   learning_rate: 0.001
@@ -17,9 +17,9 @@ algo:
 net:
   half_input_size: *base
   output_size: 1
-  hidden_size: [64, 128, 64, 32, 16]
+  hidden_size: [32, 128, 64, 32, 16]
 
 runner:
   save_interval: 5
-  save_dir: "checkpoints"
+  save_dir: "checkpoints/calf_batch32"
   log_dir: "logs"

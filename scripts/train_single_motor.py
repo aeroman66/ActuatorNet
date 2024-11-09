@@ -2,6 +2,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import matplotlib.pyplot as plt
+
 from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
 from network_training_utensils.algo.supervised_learning import SupervisedLearning
 from network_training_utensils.module.actuator_net import ActuatorNet
@@ -19,10 +21,21 @@ if __name__ == '__main__':
         log_dir=cfg.runner.log_dir,
     )
 
-    runner.load_model(cfg.policy_path)
-    print('mean_loss:', runner.test())
+    losses = []
+    for id in range(12):
+        loss = runner.learn(id=id)
+        losses.append(loss)
+    # runner.test()
 
-    # for id in range(12):
-    #     runner.test(id)
+    plt.figure(figsize=(18, 6))
+    # plt.plot(dof_tor_values)
+    plt.plot(losses)
+    plt.title('mean loss of each motor')
+    plt.xlabel('motor_id')
+    plt.ylabel('loss')
+    plt.grid(True)
 
-    print("Testing completed!")
+    plt.savefig(f'img/loss.png')
+    plt.close()
+
+    print("Training completed!")

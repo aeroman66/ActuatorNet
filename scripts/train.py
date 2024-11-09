@@ -20,7 +20,7 @@ if __name__ == '__main__':
     )
 
     # with runner.algo.storage.loaders as runner.algo.storage.loaded_loaders:
-    runner.learn()
-    runner.test()
+    runner.learn(id=2)
+    # runner.test()
 
     print("Training completed!")
