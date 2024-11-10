@@ -1,0 +1,26 @@
+network_name: "ActuatorNet"
+file_path: "data_sets/merged_motor_data_ultimate_pro_max_plus.json"
+device: "cpu"
+
+algo:
+  name: "SupervisedLearning"
+  sequence_length: 200
+  batch_size: 8
+  num_learning_epochs: 50
+  num_testing_epochs: 400
+  clip_param: 0.2
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  max_grad_norm: 1.0
+  shuffle: False
+
+net:
+  input_size: 2
+  output_size: 1
+  hidden_size: 64
+  num_layers: 2
+
+runner:
+  save_interval: 5
+  save_dir: "checkpoints/rnn_allinone"
+  log_dir: "logs"

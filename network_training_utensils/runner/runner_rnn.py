@@ -7,17 +7,17 @@ from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import time
 
-from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
-from network_training_utensils.algo.supervised_learning import SupervisedLearning
-from network_training_utensils.module.actuator_net import ActuatorNet
+from network_training_utensils.storage.data_loader_rnn import MiniBatchGenerator, RNNDataLoader
+from network_training_utensils.algo.supervised_learning_rnn import SupervisedLearning
+from network_training_utensils.module.actuator_net_rnn import ActuatorNetRNN
 from scripts import cfg
 
 class Runner:
     def  __init__(self,
                   algo: SupervisedLearning,
-                  loader: JsonConfigDataLoader,
+                  loader: RNNDataLoader,
                   generator: MiniBatchGenerator,
-                  net: ActuatorNet,
+                  net: ActuatorNetRNN,
                   cfg,
                   save_dir=None,
                   log_dir=None,
@@ -35,19 +35,15 @@ class Runner:
 
         self.writer = SummaryWriter(log_dir=self.log_dir)
         self.net = net(
-            input_size=self.cfg.net.half_input_size * 2,
+            input_size=self.cfg.net.input_size,
             output_size=self.cfg.net.output_size,
             hidden_size=self.cfg.net.hidden_size,
+            num_layers=self.cfg.net.num_layers,
             )
-        # 感觉还是应该定义成实例变量，因为需要保证在整个类的生命周期内都活着
-        # self.loader = loader(
-        #     file_path=self.cfg.file_path,
-        #     history_length=self.cfg.algo.history_length,
-        # )
         self.generator = generator(
             file_path=self.cfg.file_path,
             loader=loader,
-            history_length=self.cfg.algo.history_length,
+            sequence_length=self.cfg.algo.sequence_length,
             mini_batch_size=self.cfg.algo.batch_size,
         )
         self.algo = algo(
@@ -55,7 +51,6 @@ class Runner:
             storage=self.generator,
             num_learning_epochs=self.cfg.algo.num_learning_epochs,
             num_testing_epochs=self.cfg.algo.num_testing_epochs,
-            history_length=self.cfg.algo.history_length,
             batch_size=self.cfg.algo.batch_size,
             clip_param=self.cfg.algo.clip_param,
             learning_rate=self.cfg.algo.learning_rate,
@@ -73,8 +68,8 @@ class Runner:
         mean_losses_train = []
 
         for epoch in range(self.cfg.algo.num_learning_epochs):
-            with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
-                self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train', id=id)
+            self.algo.train_batch_gen = self.algo.storage.data_gen(dataset='train', id=id)
+            with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
                 iter = 0
                 tot_loss = 0
                 start = time.time()
@@ -83,16 +78,19 @@ class Runner:
                         loss = self.algo.update()
                         tot_loss += loss
                         iter += 1
-                    except RuntimeError:
+                    except RuntimeError as info:
+                        print(f"errare u hereor info: {info}")
+                        # print('data ran out')
                         break
                 end = time.time()
                 time_consumed = end - start
+            print(f"iter: {iter}")
             mean_loss = tot_loss / iter
             self.writer.add_scalar('loss', mean_loss, epoch)
             ep_info_dict = {
                     "epoch": epoch + 1,
                     "loss": mean_loss,
-                    "time": time_consumed
+                    "time": time_consumed,
                 }
             ep_info.append(ep_info_dict)
             print(f"Epoch: {epoch + 1}/{self.cfg.algo.num_learning_epochs}")
@@ -122,7 +120,8 @@ class Runner:
         Without an input id, the operation will be performed on all motors.
         '''
         self.current_learning_iteration = 0
-        with self.algo.storage.loaders as self.algo.storage.loaded_loaders:
+        self.algo.test_batch_gen = self.algo.storage.data_gen(dataset='test', id=id)
+        with self.algo.storage.loaders_splited as self.algo.storage.loaded_loaders:
             self.algo.test_mode()
             total_loss = 0
             num_batches = 0
@@ -141,7 +140,6 @@ class Runner:
 
                 self.writer.add_scalar(f'motor_{id}_loss', loss, self.current_learning_iteration)
                 self.current_learning_iteration += 1
-        # return total_loss / self.cfg.algo.num_testing_epochs
         return total_loss / num_batches
 
             
@@ -206,6 +204,7 @@ class Runner:
         plt.xlabel('epoch')
         plt.ylabel('loss')
         plt.grid(True)
+        plt.ylim(-0.5, 6.0)
 
         plt.savefig(f'img/test & mean loss.png')
         plt.close()
@@ -213,9 +212,9 @@ class Runner:
 if __name__ == "__main__":
     runner = Runner(
         algo=SupervisedLearning,
-        loader=JsonConfigDataLoader,
+        loader=RNNDataLoader,
         generator=MiniBatchGenerator,
-        net=ActuatorNet,
+        net=ActuatorNetRNN,
         cfg=cfg,
         save_dir=cfg.runner.save_dir,
         log_dir=cfg.runner.log_dir,

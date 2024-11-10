@@ -9,12 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
-from network_training_utensils.module.actuator_net import ActuatorNet
-from network_training_utensils.storage.data_loader_real import MiniBatchGenerator, JsonConfigDataLoader
+from network_training_utensils.module.actuator_net_rnn import ActuatorNetRNN
+from network_training_utensils.storage.data_loader_rnn import MiniBatchGenerator, RNNDataLoader
 
 class SupervisedLearning:
     def __init__(self,
-                 net : ActuatorNet,
+                 net : ActuatorNetRNN,
                  storage : MiniBatchGenerator,
                 #  history_length=15,
                  batch_size=32,
@@ -68,6 +68,7 @@ class SupervisedLearning:
     def update(self):
         # 1. 获取 batch
         mini_batch = next(self.train_batch_gen)
+        # print('required one batch')
         mini_batch = torch.Tensor(np.array(mini_batch)).to(self.device)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = mini_batch.split(1, dim=0)
         self.dof_pos_batch, self.dof_vel_batch, self.dof_tor_batch, self.tar_dof_pos_batch = (
@@ -77,21 +78,23 @@ class SupervisedLearning:
             self.tar_dof_pos_batch.squeeze(0),
         )
         obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
+        # print(obs.shape)
         action_inferenced = self.net.act_inference(obs)
-        action_inferenced = action_inferenced.squeeze(1)
-        # print("action_inferenced: ", action_inferenced)
-        label = self.dof_tor_batch[:,-1]
-        # print("label: ", label.shape)
+        action_inferenced = action_inferenced.squeeze(2)
 
         # 2. 计算 loss
-        loss = self.criterion(action_inferenced, label)
-        # print("loss: ", loss.shape)
+        # print(f"dof_tor_batch: {self.dof_tor_batch.shape}")
+        # print(f"action_inferenced: {action_inferenced.shape}")
+        loss = self.criterion(action_inferenced, self.dof_tor_batch)
 
         # 3. 更新网络参数
         self.optimizer.zero_grad()
-        loss.backward()
+        loss.backward() # RNN 中这里第二次反向传播竟然有问题
+        # print('have you reached here?')
         nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
         self.optimizer.step()
+
+        # self.net.reset()
 
         return loss.item()
     
@@ -113,16 +116,16 @@ class SupervisedLearning:
         # Get the model's prediction
         with torch.no_grad():
             action_inferenced = self.net.act_inference(obs)
-            action_inferenced = action_inferenced.squeeze(1)
+            action_inferenced = action_inferenced.squeeze(2)
         
         # Calculate the loss
-        label = self.dof_tor_batch[:,-1]
-        loss = self.criterion(action_inferenced, label)
+        # label = self.dof_tor_batch[:,-1]
+        loss = self.criterion(action_inferenced, self.dof_tor_batch)
         
         return loss.item()
     
     def _construct_observation(self, dof_pos_batch, dof_vel_batch, tar_dof_pos_batch):
-        obs = torch.cat((dof_pos_batch - tar_dof_pos_batch, dof_vel_batch), dim=1)
+        obs = torch.stack([dof_pos_batch - tar_dof_pos_batch, dof_vel_batch], dim=2)
         return obs
 
 
@@ -131,7 +134,7 @@ if __name__ == "__main__":
     因为目前数据不多，网络过于复杂可能出现过拟合的情况：选择降低参数数目，目前为 [64, 32, 16]
     """
     file_path = 'data_sets/merged_motor_data_ultimate.json'
-    algo = SupervisedLearning(net=ActuatorNet(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32), num_learning_epochs=10, file_path=file_path)
+    algo = SupervisedLearning(net=ActuatorNetRNN(input_size=30, output_size=1), storage=MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=15, mini_batch_size=32), num_learning_epochs=10, file_path=file_path)
     with algo.storage.loaders as algo.storage.loaded_loaders:
         losslist = []
         for iter in range(10):

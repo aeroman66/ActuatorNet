@@ -341,7 +341,7 @@ if __name__ == "__main__":
     mini_batch_gen = MiniBatchGenerator(file_path=file_path,loader=JsonConfigDataLoader, history_length=5, mini_batch_size=2)
 
     print(f"Number of motors: {mini_batch_gen.loader.num_motors}")
-    batch_gen = mini_batch_gen.data_gen(100, 'train')
+    batch_gen = mini_batch_gen.data_gen('train')
     with mini_batch_gen.loaders_splited as mini_batch_gen.loaded_loaders:
         for idx in range(100):
             mini_batch = next(batch_gen)
