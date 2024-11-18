@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import time
 
 from network_training_utensils.storage.data_loader_rnn import MiniBatchGenerator, RNNDataLoader
-from network_training_utensils.algo.supervised_learning_rnn import SupervisedLearning
-from network_training_utensils.module.actuator_net_rnn import ActuatorNetRNN
+from network_training_utensils.algo.supervised_learning_rnn_cls import SupervisedLearning
+from network_training_utensils.module.actuator_net_rnn_cls import ActuatorNetRNNDIS
 from scripts import cfg
 
 class Runner:
@@ -17,7 +17,7 @@ class Runner:
                   algo: SupervisedLearning,
                   loader: RNNDataLoader,
                   generator: MiniBatchGenerator,
-                  net: ActuatorNetRNN,
+                  net: ActuatorNetRNNDIS,
                   cfg,
                   save_dir=None,
                   log_dir=None,
@@ -39,6 +39,7 @@ class Runner:
             output_size=self.cfg.net.output_size,
             hidden_size=self.cfg.net.hidden_size,
             num_layers=self.cfg.net.num_layers,
+            num_classes=self.cfg.net.num_classes,
             )
         self.generator = generator(
             file_path=self.cfg.file_path,
@@ -51,6 +52,7 @@ class Runner:
             storage=self.generator,
             num_learning_epochs=self.cfg.algo.num_learning_epochs,
             num_testing_epochs=self.cfg.algo.num_testing_epochs,
+            num_classes = self.cfg.net.num_classes,
             batch_size=self.cfg.algo.batch_size,
             clip_param=self.cfg.algo.clip_param,
             learning_rate=self.cfg.algo.learning_rate,
@@ -100,6 +102,7 @@ class Runner:
 
             # 对模型进行测试，以确定是否需要早停
             mean_loss_test = self.test(id=id)
+            print(f"mean_loss_test: {mean_loss_test}")
             mean_losses_test.append(mean_loss_test)
             mean_losses_train.append(mean_loss)
             self.plot_loss(test_loss=mean_losses_test, train_loss=mean_losses_train)
@@ -204,7 +207,7 @@ class Runner:
         plt.xlabel('epoch')
         plt.ylabel('loss')
         plt.grid(True)
-        plt.ylim(-0.5, 6.0)
+        # plt.ylim(-0.5, 6.0)
 
         plt.savefig(f'img/test & mean loss.png')
         plt.close()
@@ -214,7 +217,7 @@ if __name__ == "__main__":
         algo=SupervisedLearning,
         loader=RNNDataLoader,
         generator=MiniBatchGenerator,
-        net=ActuatorNetRNN,
+        net=ActuatorNetRNNDIS,
         cfg=cfg,
         save_dir=cfg.runner.save_dir,
         log_dir=cfg.runner.log_dir,

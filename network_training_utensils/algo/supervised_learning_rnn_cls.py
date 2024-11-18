@@ -16,7 +16,7 @@ class SupervisedLearning:
     def __init__(self,
                  net : ActuatorNetRNN,
                  storage : MiniBatchGenerator,
-                #  history_length=15,
+                 num_classes=1000,
                  batch_size=32,
                  num_learning_epochs=10,
                  num_testing_epochs=10,
@@ -29,7 +29,7 @@ class SupervisedLearning:
                  device='cpu'):
         self.net = net
         self.storage = storage # 进行单独初始化
-        # self.history_length = history_length
+        self.num_classes = num_classes
         self.batch_size = batch_size
         self.num_learning_epochs = num_learning_epochs
         self.num_testing_epochs = num_testing_epochs
@@ -43,7 +43,8 @@ class SupervisedLearning:
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
         # self.criterion = nn.HuberLoss()  
-        self.criterion = nn.MSELoss() 
+        self.criterion_train = nn.CrossEntropyLoss()
+        self.criterion_test = nn.MSELoss()
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
 
         # attributes
@@ -79,15 +80,29 @@ class SupervisedLearning:
         )
         obs = self._construct_observation(self.dof_pos_batch, self.dof_vel_batch, self.tar_dof_pos_batch)
         # print(obs.shape)
-        action_inferenced = self.net.act_inference(obs)
+        logits = self.net(obs) # Shape: [batch_size, seq_len, num_classes]
         # print(f"action_inferenced: {action_inferenced.shape}")
-        action_inferenced = action_inferenced.squeeze(2)
+
+        # Reshape dof_tor_batch to handle all values
+        flat_tor = self.dof_tor_batch.reshape(-1)
+        # Calculate distances for all values
+        distances = torch.abs(flat_tor.unsqueeze(-1) - torch.linspace(-15, 15, self.num_classes))
+        # Get closest indices
+        closest_indices = torch.argmin(distances, dim=-1)
+        # Create one-hot vectors
+        target_one_hot = torch.zeros(flat_tor.shape[0], len(self.net.discrete_values), device=self.device)
+        target_one_hot.scatter_(1, closest_indices.unsqueeze(-1), 1.0)
+        # Reshape back to match logits
+        target_one_hot = target_one_hot.reshape(self.dof_tor_batch.shape + (-1,))
+        # print(f"target_one_hot:{target_one_hot.shape}")
+
+        # action_inferenced = action_inferenced.squeeze(2)
         # print(f"action_inferenced: {action_inferenced}")
 
         # 2. 计算 loss
         # print(f"dof_tor_batch: {self.dof_tor_batch.shape}")
-        # print(f"action_inferenced: {action_inferenced.shape}")
-        loss = self.criterion(action_inferenced, self.dof_tor_batch)
+        # print(f"logits: {logits.shape}")
+        loss = self.criterion_train(logits, target_one_hot)
         # print(f"loss: {loss.item()}")
 
         # 3. 更新网络参数
@@ -119,11 +134,13 @@ class SupervisedLearning:
         # Get the model's prediction
         with torch.no_grad():
             action_inferenced = self.net.act_inference(obs)
-            action_inferenced = action_inferenced.squeeze(2)
+            # print(f"action_inferenced: {action_inferenced.shape}")
+            action_inferenced = action_inferenced.squeeze(-1)
         
         # Calculate the loss
         # label = self.dof_tor_batch[:,-1]
-        loss = self.criterion(action_inferenced, self.dof_tor_batch)
+        loss = self.criterion_test(action_inferenced, self.dof_tor_batch)
+        # print(f"loss: {loss.item()}")
         
         return loss.item()
     

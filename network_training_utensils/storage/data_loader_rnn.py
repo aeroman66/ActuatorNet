@@ -195,7 +195,7 @@ class MiniBatchGenerator:
             raise ValueError("dataset must be 'train', 'val', or 'test'")
         
         id_list_origin = list(range(RNNDataLoader.num_motors))
-        id_filtered = [x for x in id_list_origin if x % 3 == 2]
+        id_filtered = [x for x in id_list_origin if x % 3 != 2]
 
         # print(f"length of idlist: {len(id_filtered)}")
         # RNNDataLoader.num_motors = len(id_filtered)
